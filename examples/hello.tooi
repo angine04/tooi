@@ -1,0 +1,17 @@
+/**
+ * Tooi Hello World示例
+ *
+ * 最基本的Tooi程序示例，展示了程序入口点和基本输出功能。
+ * 这是Tooi语言学习的第一个程序。
+ *
+ * 这是一个已验证的基础示例程序。
+ *
+ * 作者：Angine
+ * 日期：2025-03-23
+ */
+
+add io;
+
+set main @ {
+    io.@print_line("Hello, Tooi!");
+};
