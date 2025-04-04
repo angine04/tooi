@@ -7,7 +7,8 @@
 // Assuming build system handles include paths correctly:
 #include "tooi/cli/args_parser.h"
 #include "tooi/cli/repl.h"
-#include "tooi/core/interpreter.h"
+#include "tooi/cli/run_from_file.h"
+// #include "tooi/core/interpreter.h" // No longer directly needed here
 
 /**
  * @brief The main function, entry point of the program.
@@ -24,7 +25,9 @@ int main(int argc, char* argv[]) {
     using tooi::cli::ArgsParser;
     using tooi::cli::Repl;
     using tooi::cli::RunMode;
-    using tooi::core::Interpreter;
+    // using tooi::core::Interpreter; // No longer directly needed here
+    // Explicitly using the function from its namespace
+    // using tooi::cli::run_from_file; // Alternative: Just qualify the call
 
     ArgsParser args_parser;
     args_parser.parse(argc, argv);
@@ -44,12 +47,10 @@ int main(int argc, char* argv[]) {
             repl.run();
         } break;
         case RunMode::FILE: {
-            Interpreter interpreter;
-            if (!interpreter.run_file(args_parser.get_filename())) {
-                // Indicate file processing error
-                std::cerr << "Error: Failed to execute tooi script file: " << args_parser.get_filename()
-                          << std::endl;
-                exit_code = 1;
+            // Call the function using its full namespace qualification
+            if (!tooi::cli::run_from_file(args_parser.get_filename())) {
+                // Error message printed by run_from_file or interpreter.run inside it
+                exit_code = 1; // Indicate failure
             }
         } break;
         case RunMode::ERROR:

@@ -25,7 +25,7 @@ void ArgsParser::parse(int argc, char* argv[]) {
 
     if (arg1 == "-h" || arg1 == "--help") {
         mode_ = RunMode::HELP;
-    } else if (arg1 == "--version") {
+    } else if (arg1 == "--version" || arg1 == "-v") {
         mode_ = RunMode::VERSION;
     } else if (argc == 2 && arg1[0] != '-') { // Assume it's a filename if not starting with '-'
         // TODO: Add proper file existence check?

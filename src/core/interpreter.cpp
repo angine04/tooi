@@ -3,54 +3,71 @@
  * @brief Implementation of the Interpreter class for executing Tooi scripts.
  */
 #include "tooi/core/interpreter.h"
-#include <fstream>
+
+#include <fstream> // Still potentially useful
 #include <iostream>
-#include <sstream> // Include for potential future use with string streams
+#include <istream>
+#include <sstream> // Needed to read stream into string
 #include <string>
+#include <vector>
+
+#include "tooi/core/scanner.h" // Include the Scanner header
+#include "tooi/core/token.h"   // Include the Token header
 
 namespace tooi {
 namespace core {
 
 /**
- * @brief Executes a Tooi script read from a specified file.
+ * @brief Executes Tooi code read from the given input stream.
  *
- * Opens the file, reads it line by line (currently just printing them),
- * and reports any errors encountered during file opening or reading.
+ * Reads the entire stream content, tokenizes it using the Scanner,
+ * and currently just prints the resulting tokens.
+ * Modifies the interpreter's state (e.g., increments execution count).
  *
- * @param filename The path to the script file.
- * @return True if the file was opened and read successfully (even if the script has errors),
- *         false if the file could not be opened or a read error occurred.
+ * @param input_stream The input stream providing the Tooi code.
+ * @return True if the code stream was read and scanned without fatal I/O errors.
+ *         Scanner errors (lexical errors) might result in ERROR tokens but won't return false here.
  */
-bool Interpreter::run_file(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file \"" << filename << "\"" << std::endl;
-        return false; // Indicate failure to open
+bool Interpreter::run(std::istream& input_stream) {
+    execution_count_++; // Increment state counter
+    std::cout << "[Interpreter::run call #" << execution_count_ << "] Processing stream..." << std::endl;
+
+    // 1. Read the entire stream into a string
+    std::stringstream buffer;
+    buffer << input_stream.rdbuf(); // Read everything from input_stream into buffer
+    std::string source = buffer.str();
+
+    // Check for stream errors *after* reading
+    if (input_stream.bad() || (input_stream.fail() && !input_stream.eof())) {
+         std::cerr << "Error: Failed while reading from input stream." << std::endl;
+         // Optionally clear flags if needed: input_stream.clear();
+         return false; // Indicate stream read error before scanning
+    }
+    // Clear EOF flag if necessary (though usually not needed after reading to string)
+    if (input_stream.eof()) {
+         input_stream.clear();
     }
 
-    std::string line;
-    // Basic line-by-line processing for now
-    while (std::getline(file, line)) {
-        // Placeholder for actual processing:
-        // 1. Lexing: Tokenize the line
-        // 2. Parsing: Build AST (might span multiple lines)
-        // 3. Evaluation: Execute
-        std::cout << "Executing line: " << line << std::endl; // Simple echo for now
+    // 2. Scan the source string into tokens
+    Scanner scanner(std::move(source)); // Use std::move if source won't be needed again
+    std::vector<Token> tokens = scanner.scan_tokens();
+
+    std::cout << "  Scanned " << tokens.size() << " tokens:" << std::endl;
+
+    // 3. Print the tokens (placeholder for actual execution)
+    for (const auto& token : tokens) {
+        std::cout << "    " << token.to_string() << std::endl;
+        // TODO: Future: Check for TokenType::ERROR and report/handle properly
     }
 
-    // Check for I/O errors after the loop (e.g., disk error during read)
-    if (file.bad()) {
-        std::cerr << "Error: Failed while reading file \"" << filename << "\"" << std::endl;
-        // file object is automatically closed when it goes out of scope (RAII)
-        return false; // Indicate read error
-    }
+    // TODO: Placeholder for actual processing (Parsing, Evaluation):
+    // Parser parser(tokens);
+    // auto statements = parser.parse();
+    // if (!parser.has_errors()) {
+    //    evaluate(statements);
+    // }
 
-    // Check if the loop ended due to reaching EOF (good) vs other errors
-    // file.eof() is true if EOF was reached. file.fail() might be true if getline failed not due to EOF.
-    // For this simple case, reaching here without file.bad() is considered success.
-
-    // file object is automatically closed when it goes out of scope (RAII)
-    return true; // Indicate successful completion of file processing
+    return true; // Indicate successful processing of the stream content (for now)
 }
 
 } // namespace core

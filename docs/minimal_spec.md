@@ -39,6 +39,7 @@ let pi : float -> 3.14159;
 let text : string -> "Hello";
 let flag : bool -> true;
 let data : byte -> [0x01, 0x02, 0x03];
+let unknown : proto;
 
 // 数组
 let numbers : [int] -> [1, 2, 3, 4, 5];
@@ -61,12 +62,12 @@ let config : [string -> proto] -> [
 
 ```tooi
 // 数组操作
-let arr : array -> [1, 2, 3];
+let arr : [int] -> [1, 2, 3];
 let first -> arr[0];           // 访问元素
 let len -> arr.length;         // 获取长度
 arr.@push(4);                  // 添加元素
 arr.@pop();                    // 移除最后一个元素
-arr.@insert(1, 5);            // 在指定位置插入
+arr.@insert(5 -> 1);            // 在指定位置插入
 arr.@remove(1);               // 移除指定位置的元素
 
 // 数组遍历

@@ -1,9 +1,9 @@
 #pragma once
 
-// #ifndef TOOI_CORE_INTERPRETER_H
-// #define TOOI_CORE_INTERPRETER_H
-
+#include <istream> // Include for std::istream
 #include <string>
+// #include <vector> // Example placeholder for state
+// #include <unordered_map> // Example placeholder for state
 
 /**
  * @namespace tooi
@@ -19,20 +19,34 @@ namespace core {
 /**
  * @class Interpreter
  * @brief The main class responsible for executing Tooi scripts.
+ *
+ * This class maintains the execution context (variables, functions, etc.)
+ * across multiple calls to run(), allowing for stateful interpretation,
+ * suitable for REPL sessions or executing scripts piece by piece.
  */
 class Interpreter {
-public:
+   public:
     /**
-     * @brief Executes the script contained within the specified file.
-     * @param filename The path to the script file to execute.
-     * @return True if execution was successful, false otherwise.
+     * @brief Executes Tooi code read from the given input stream.
+     *
+     * Reads code from the stream, parses it, and executes it within the
+     * interpreter's current context. Modifies the interpreter's state
+     * (e.g., defines variables).
+     *
+     * @param input_stream The input stream providing the Tooi code.
+     * @return True if the code from the stream was processed without fatal
+     *         errors (e.g., syntax errors preventing further execution).
+     *         Returns false if a fatal error occurred. Non-fatal runtime
+     *         errors might still occur and be reported without returning false.
      */
-    bool run_file(const std::string& filename);
+    bool run(std::istream& input_stream);
 
-    // We might add run_string, etc. later
+   private:
+    // Placeholder for interpreter state:
+    // std::unordered_map<std::string, Value> variables_;
+    // ExecutionEnvironment environment_;
+    int execution_count_ = 0; // Simple example of state
 };
 
 }  // namespace core
 }  // namespace tooi
-
-// #endif // TOOI_CORE_INTERPRETER_H
