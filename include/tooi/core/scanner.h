@@ -46,7 +46,8 @@ private:
 
     void scan_token(); // Main dispatch method for scanning one token
     void skip_whitespace_and_comments();
-    void scan_string();
+    void scan_interpolated_string(char delimiter);
+    void scan_raw_string();
     void scan_number();
     void scan_identifier();
 

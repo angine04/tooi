@@ -12,11 +12,12 @@ namespace cli {
  * using the file's content as input.
  *
  * @param filename The path to the script file.
+ * @param verbose Enable verbose output during interpretation.
  * @return True if the file was opened and the script executed without fatal
  *         interpreter errors, false otherwise (e.g., file not found, fatal
  *         interpreter error).
  */
-bool run_from_file(const std::string& filename);
+bool run_from_file(const std::string& filename, bool verbose);
 
 } // namespace cli
 } // namespace tooi 

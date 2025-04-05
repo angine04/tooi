@@ -27,6 +27,12 @@ namespace core {
 class Interpreter {
    public:
     /**
+     * @brief Constructs an Interpreter instance.
+     * @param verbose Enable verbose output during execution.
+     */
+    explicit Interpreter(bool verbose = false);
+
+    /**
      * @brief Executes Tooi code read from the given input stream.
      *
      * Reads code from the stream, parses it, and executes it within the
@@ -46,6 +52,7 @@ class Interpreter {
     // std::unordered_map<std::string, Value> variables_;
     // ExecutionEnvironment environment_;
     int execution_count_ = 0; // Simple example of state
+    bool verbose_ = false; // Flag for verbose output
 };
 
 }  // namespace core

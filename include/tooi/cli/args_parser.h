@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 /**
  * @namespace tooi
@@ -52,6 +53,12 @@ public:
     const std::string &get_filename() const;
 
     /**
+     * @brief Checks if verbose mode was requested.
+     * @return True if --verbose flag was present, false otherwise.
+     */
+    bool is_verbose() const;
+
+    /**
      * @brief Displays a standard help message to the console.
      * @param program_name The name of the executable (argv[0]), used in the help message.
      */
@@ -66,6 +73,7 @@ private:
     RunMode mode_ = RunMode::REPL;  ///< @brief The determined run mode. Defaults to REPL.
     std::string filename_;          ///< @brief Stores the filename if provided.
     std::string error_message_;     ///< @brief Stores any error message encountered during parsing.
+    bool verbose_ = false;          ///< @brief Flag for verbose output.
 };
 
 }  // namespace cli

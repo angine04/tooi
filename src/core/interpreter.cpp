@@ -30,34 +30,34 @@ namespace core {
  */
 bool Interpreter::run(std::istream& input_stream) {
     execution_count_++; // Increment state counter
-    std::cout << "[Interpreter::run call #" << execution_count_ << "] Processing stream..." << std::endl;
+    if (verbose_) {
+        std::cout << "[Interpreter::run call #" << execution_count_ << "] Processing stream..." << std::endl;
+    }
 
     // 1. Read the entire stream into a string
     std::stringstream buffer;
-    buffer << input_stream.rdbuf(); // Read everything from input_stream into buffer
+    buffer << input_stream.rdbuf();
     std::string source = buffer.str();
 
     // Check for stream errors *after* reading
     if (input_stream.bad() || (input_stream.fail() && !input_stream.eof())) {
-         std::cerr << "Error: Failed while reading from input stream." << std::endl;
-         // Optionally clear flags if needed: input_stream.clear();
-         return false; // Indicate stream read error before scanning
+         if (verbose_) std::cerr << "Error: Failed while reading from input stream." << std::endl;
+         return false;
     }
-    // Clear EOF flag if necessary (though usually not needed after reading to string)
     if (input_stream.eof()) {
          input_stream.clear();
     }
 
     // 2. Scan the source string into tokens
-    Scanner scanner(std::move(source)); // Use std::move if source won't be needed again
+    Scanner scanner(std::move(source));
     std::vector<Token> tokens = scanner.scan_tokens();
 
-    std::cout << "  Scanned " << tokens.size() << " tokens:" << std::endl;
-
-    // 3. Print the tokens (placeholder for actual execution)
-    for (const auto& token : tokens) {
-        std::cout << "    " << token.to_string() << std::endl;
-        // TODO: Future: Check for TokenType::ERROR and report/handle properly
+    // 3. Print the tokens only if verbose mode is enabled
+    if (verbose_) {
+        std::cout << "  Scanned " << tokens.size() << " tokens:" << std::endl;
+        for (const auto& token : tokens) {
+            std::cout << "    " << token.to_string() << std::endl;
+        }
     }
 
     // TODO: Placeholder for actual processing (Parsing, Evaluation):
@@ -69,6 +69,9 @@ bool Interpreter::run(std::istream& input_stream) {
 
     return true; // Indicate successful processing of the stream content (for now)
 }
+
+Interpreter::Interpreter(bool verbose)
+    : verbose_(verbose) {}
 
 } // namespace core
 } // namespace tooi

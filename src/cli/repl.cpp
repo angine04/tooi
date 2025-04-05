@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream> // Needed for stringstream in Repl::run modification
 #include <vector> // To buffer lines in Repl::run modification? Maybe remove later if unused.
+#include <cstddef> // For size_t
 
 // Moved run_from_file implementation to its own file.
 // Removed includes related to run_from_file: <fstream>, "tooi/core/interpreter.h"
@@ -14,6 +15,10 @@
 
 namespace tooi {
 namespace cli {
+
+// Constructor implementation
+Repl::Repl(bool verbose)
+    : verbose_(verbose) {}
 
 /**
  * @brief Runs the Read-Eval-Print Loop (REPL).
@@ -23,7 +28,7 @@ namespace cli {
  * block using a persistent Interpreter instance. Exits on "@exit;" or EOF.
  */
 void Repl::run() {
-    core::Interpreter interpreter; // Create a persistent interpreter instance
+    core::Interpreter interpreter(verbose_); // Pass verbose flag to interpreter
     std::string current_block;     // Buffer for the current multi-line block
     std::string line;
     bool need_more_input = false; // Flag to control prompt display
@@ -41,7 +46,7 @@ void Repl::run() {
             if (!current_block.empty()) {
                 std::cout << std::endl; // Newline after last input
                 std::stringstream ss(current_block);
-                interpreter.run(ss);
+                interpreter.run(ss); // Verbose output handled inside run
             }
             std::cout << std::endl; // Ensure cursor moves to the next line on exit
             break;
@@ -57,9 +62,8 @@ void Repl::run() {
             if (!current_block.empty()) {
                 // Execute the accumulated block
                 std::stringstream ss(current_block);
-                if (!interpreter.run(ss)) {
-                   // Interpreter reported an error (e.g., stream read error or fatal parse/exec error)
-                   // Error message should have been printed by interpreter.run
+                if (!interpreter.run(ss)) { // Verbose output handled inside run
+                   // Error messages might depend on verbose flag within run()
                    std::cerr << "Error during execution. Block cleared." << std::endl;
                 }
                 current_block.clear(); // Clear buffer for the next block
@@ -69,9 +73,30 @@ void Repl::run() {
                 need_more_input = false;
             }
         } else {
-            // Non-empty line, append to the buffer
+            // Non-empty line
             current_block += line + '\n';
-            need_more_input = true; // Indicate we need more input (show '...')
+
+            bool is_first_line = !need_more_input;
+            bool ends_with_semicolon = false;
+
+            // Check if the original line ends with a semicolon (ignoring trailing whitespace)
+            size_t endpos = line.find_last_not_of(" \t\n\r");
+            if (endpos != std::string::npos && line[endpos] == ';') {
+                ends_with_semicolon = true;
+            }
+
+            // If it's the first line of a block AND it ends with a semicolon, execute immediately
+            if (is_first_line && ends_with_semicolon) {
+                std::stringstream ss(current_block);
+                if (!interpreter.run(ss)) {
+                   std::cerr << "Error during execution. Block cleared." << std::endl;
+                }
+                current_block.clear(); // Clear buffer after execution
+                need_more_input = false; // Ready for next primary prompt
+            } else {
+                // Otherwise, continue accumulating the block
+                need_more_input = true;
+            }
         }
     }
     std::cout << "Exiting Tooi REPL." << std::endl;

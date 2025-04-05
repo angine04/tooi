@@ -5,40 +5,58 @@
 #include "tooi/cli/args_parser.h"
 #include <iostream>
 #include <string>
+#include <vector> // For processing arguments
 
 namespace tooi {
 namespace cli {
 
 /**
- * Parses the command-line arguments to determine the run mode and filename.
- * This is a simple implementation and might need refinement for more complex cases.
+ * Parses the command-line arguments to determine the run mode, filename,
+ * and flags like verbose mode.
  */
 void ArgsParser::parse(int argc, char* argv[]) {
-    if (argc == 1) {
-        // No arguments, default to REPL mode
-        mode_ = RunMode::REPL;
-        return;
+    std::vector<std::string> args(argv + 1, argv + argc); // Easier to work with strings
+    std::string potential_filename;
+    mode_ = RunMode::REPL; // Default assumption
+
+    for (const auto& arg : args) {
+        if (arg == "-h" || arg == "--help") {
+            mode_ = RunMode::HELP;
+            return; // Help overrides everything else
+        } else if (arg == "-v" || arg == "--version") { // Treat -v as version for now
+            mode_ = RunMode::VERSION;
+            return; // Version overrides everything else
+        } else if (arg == "--verbose") {
+            verbose_ = true;
+            // Continue parsing other args
+        } else if (arg.rfind("-", 0) == 0) {
+             // Unknown option
+             mode_ = RunMode::ERROR;
+             error_message_ = "Unknown option: " + arg;
+             return;
+        } else {
+            // Assume it's a filename. Only allow one.
+            if (!potential_filename.empty()) {
+                mode_ = RunMode::ERROR;
+                error_message_ = "Multiple filenames provided.";
+                return;
+            }
+            potential_filename = arg;
+        }
     }
 
-    // Convert first argument to std::string for easier comparison
-    std::string arg1 = argv[1];
-
-    if (arg1 == "-h" || arg1 == "--help") {
-        mode_ = RunMode::HELP;
-    } else if (arg1 == "--version" || arg1 == "-v") {
-        mode_ = RunMode::VERSION;
-    } else if (argc == 2 && arg1[0] != '-') { // Assume it's a filename if not starting with '-'
-        // TODO: Add proper file existence check?
-        mode_ = RunMode::FILE;
-        filename_ = arg1;
-    } else {
-        // Unrecognized arguments or unsupported combinations
-        mode_ = RunMode::ERROR;
-        // Store a generic error message, could be more specific based on argv
-        error_message_ = "Invalid arguments or unsupported option combination.";
+    // Post-processing logic
+    if (mode_ != RunMode::HELP && mode_ != RunMode::VERSION && mode_ != RunMode::ERROR) {
+        if (!potential_filename.empty()) {
+             mode_ = RunMode::FILE;
+             filename_ = potential_filename;
+        } else {
+             // No filename given, stays in REPL mode (unless verbose made it error above)
+             mode_ = RunMode::REPL;
+        }
     }
-    // Note: This parser is basic. It doesn't handle combined flags,
-    // options after filename (e.g., `tooi somefile -v`), or multiple files.
+    // Note: This logic implies --verbose can be used with REPL or FILE mode.
+    // If --verbose is the *only* argument, it will enter REPL in verbose mode.
 }
 
 /**
@@ -57,6 +75,13 @@ const std::string& ArgsParser::get_filename() const {
 }
 
 /**
+ * Checks if verbose mode was requested.
+ */
+bool ArgsParser::is_verbose() const {
+    return verbose_;
+}
+
+/**
  * Prints the standard help message to standard error.
  */
 void ArgsParser::show_help(const char* program_name) const {
@@ -64,10 +89,10 @@ void ArgsParser::show_help(const char* program_name) const {
     std::cerr << "\nOptions:\n";
     std::cerr << "  -h, --help     Show this help message and exit\n";
     std::cerr << "  -v, --version  Show version information and exit\n";
+    std::cerr << "      --verbose  Enable verbose output during execution\n"; // Add verbose flag help
     std::cerr << "\nArguments:\n";
     std::cerr << "  file           Execute the script from the specified file\n";
-    std::cerr << "\nIf no file is provided or only options are given, tooi starts in REPL mode\n";
-    std::cerr << "unless -h or -v is specified.\n";
+    std::cerr << "\nIf no file is provided, tooi starts in REPL mode.\n";
 }
 
 /**

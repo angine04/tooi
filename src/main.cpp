@@ -33,6 +33,7 @@ int main(int argc, char* argv[]) {
     args_parser.parse(argc, argv);
 
     RunMode mode = args_parser.get_mode();
+    bool verbose = args_parser.is_verbose(); // Get verbose flag
     int exit_code = 0;  // Default to success
 
     switch (mode) {
@@ -43,14 +44,19 @@ int main(int argc, char* argv[]) {
             args_parser.show_version();
             break;
         case RunMode::REPL: {
-            Repl repl;
+            if (verbose) {
+                std::cout << "Starting REPL in verbose mode..." << std::endl;
+            }
+            Repl repl(verbose); // Pass flag to Repl constructor
             repl.run();
         } break;
         case RunMode::FILE: {
-            // Call the function using its full namespace qualification
-            if (!tooi::cli::run_from_file(args_parser.get_filename())) {
-                // Error message printed by run_from_file or interpreter.run inside it
-                exit_code = 1; // Indicate failure
+            if (verbose) {
+                std::cout << "Running file in verbose mode: " << args_parser.get_filename() << std::endl;
+            }
+            // Pass flag to run_from_file
+            if (!tooi::cli::run_from_file(args_parser.get_filename(), verbose)) {
+                exit_code = 1;
             }
         } break;
         case RunMode::ERROR:

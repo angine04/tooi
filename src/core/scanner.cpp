@@ -125,6 +125,16 @@ const char* Token::type_to_string(TokenType type) {
             return "QUESTION";
         case TokenType::COLON:
             return "COLON";
+        case TokenType::CARET:
+            return "CARET";
+        case TokenType::PERCENT:
+            return "PERCENT";
+        case TokenType::AMPERSAND:
+            return "AMPERSAND";
+        case TokenType::PIPE:
+            return "PIPE";
+        case TokenType::TILDE:
+            return "TILDE";
         // One or two character tokens.
         case TokenType::BANG:
             return "BANG";
@@ -394,30 +404,73 @@ void Scanner::skip_whitespace_and_comments() {
     }
 }
 
-void Scanner::scan_string() {
-    while (peek() != '"' && !is_at_end()) {
-        if (peek() == '\n')
-            line_++;  // Allow multi-line strings
-        // Handle escape sequences if needed (e.g., \n, \t, \", \\)
-        // if (peek() == '\\' && peek_next() == 'n') { ... }
+// Handles strings with escape sequences ("..." or '...')
+void Scanner::scan_interpolated_string(char delimiter) {
+    std::stringstream value_builder;
+    while (peek() != delimiter && !is_at_end()) {
+        char c = peek();
+        if (c == '\\') { // Escape sequence
+            advance(); // Consume '\'
+            if (is_at_end()) { // Escaped EOF
+                std::cerr << "Line " << line_ << ": Error: Unterminated escape sequence." << std::endl;
+                add_token(TokenType::ERROR);
+                return;
+            }
+            char escaped = advance(); // Consume character after '\'
+            switch (escaped) {
+                case 'n':  value_builder << '\n'; break;
+                case 't':  value_builder << '\t'; break;
+                case '\\': value_builder << '\\'; break;
+                case '"': value_builder << '"'; break;
+                case '\'': value_builder << '\''; break;
+                // Add other escapes like \r, \b, \f if needed
+                default:
+                    // Invalid escape, treat as literal backslash + char?
+                    // Or report error?
+                    std::cerr << "Line " << line_
+                              << ": Warning: Invalid escape sequence '\\" << escaped << "'. Treating as literal characters." << std::endl;
+                    value_builder << '\\';
+                    value_builder << escaped;
+                    break;
+            }
+        } else {
+            if (c == '\n') line_++; // Still track line numbers
+            value_builder << c;
+            advance();
+        }
+    }
+
+    if (is_at_end()) {
+        std::cerr << "Line " << line_ << ": Error: Unterminated string literal." << std::endl;
+        add_token(TokenType::ERROR);
+        return;
+    }
+
+    // The closing delimiter.
+    advance();
+
+    add_token(TokenType::STRING_LITERAL, value_builder.str());
+}
+
+// Handles raw strings (`...`) without escape sequences
+void Scanner::scan_raw_string() {
+    while (peek() != '`' && !is_at_end()) {
+        if (peek() == '\n') line_++;
         advance();
     }
 
     if (is_at_end()) {
-        // Unterminated string.
-        // Report error - e.g., create an ERROR token
-        std::cerr << "Line " << line_ << ": Error: Unterminated string." << std::endl;
-        add_token(TokenType::ERROR);  // Or specific error token
+        std::cerr << "Line " << line_ << ": Error: Unterminated raw string literal." << std::endl;
+        add_token(TokenType::ERROR);
         return;
     }
 
-    // The closing ".
+    // The closing backtick.
     advance();
 
-    // Trim the surrounding quotes and create literal.
+    // Trim the surrounding backticks.
     std::string value = source_.substr(start_ + 1, current_ - start_ - 2);
-    // TODO: Process escape sequences in 'value' here if implemented
-    add_token(TokenType::STRING, value);
+    add_token(TokenType::STRING_LITERAL, value);
 }
 
 void Scanner::scan_number() {
@@ -464,56 +517,39 @@ void Scanner::scan_identifier() {
 
 void Scanner::scan_token() {
     skip_whitespace_and_comments();
-    start_ = current_;  // Reset start after skipping whitespace/comments
+    start_ = current_;
 
-    if (is_at_end())
-        return;  // Nothing more to scan
+    if (is_at_end()) return;
 
     char c = advance();
 
-    if (is_alpha(c)) {
-        scan_identifier();
-        return;
-    }
-    if (is_digit(c)) {
-        scan_number();
-        return;
-    }
+    if (is_alpha(c)) { scan_identifier(); return; }
+    if (is_digit(c)) { scan_number(); return; }
 
     switch (c) {
-        case '(':
-            add_token(TokenType::LEFT_PAREN);
-            break;
-        case ')':
-            add_token(TokenType::RIGHT_PAREN);
-            break;
-        case '{':
-            add_token(TokenType::LEFT_BRACE);
-            break;
-        case '}':
-            add_token(TokenType::RIGHT_BRACE);
-            break;
-        case ',':
-            add_token(TokenType::COMMA);
-            break;
-        case '.':
-            add_token(TokenType::DOT);
-            break;
-        case '-':
-            add_token(match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS);
-            break;
-        case '+':
-            add_token(TokenType::PLUS);
-            break;
-        case ';':
-            add_token(TokenType::SEMICOLON);
-            break;
-        case '*':
-            add_token(TokenType::ASTERISK);
-            break;
-        case '!':
-            add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
-            break;
+        case '(': add_token(TokenType::LEFT_PAREN); break;
+        case ')': add_token(TokenType::RIGHT_PAREN); break;
+        case '{': add_token(TokenType::LEFT_BRACE); break;
+        case '}': add_token(TokenType::RIGHT_BRACE); break;
+        case '[': add_token(TokenType::LEFT_BRACKET); break;
+        case ']': add_token(TokenType::RIGHT_BRACKET); break;
+        case ',': add_token(TokenType::COMMA); break;
+        case '.': add_token(TokenType::DOT); break;
+        case '-': add_token(match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS); break;
+        case '+': add_token(TokenType::PLUS); break;
+        case ';': add_token(TokenType::SEMICOLON); break;
+        case '*': add_token(TokenType::ASTERISK); break;
+        case '@': add_token(TokenType::AT); break;
+        case '#': add_token(TokenType::HASHTAG); break;
+        case '$': add_token(TokenType::DOLLAR); break;
+        case '?': add_token(TokenType::QUESTION); break;
+        case ':': add_token(match(':') ? TokenType::COLON_COLON : TokenType::COLON); break;
+        case '^': add_token(TokenType::CARET); break;
+        case '%': add_token(TokenType::PERCENT); break;
+        case '&': add_token(TokenType::AMPERSAND); break;
+        case '|': add_token(TokenType::PIPE); break;
+        case '~': add_token(TokenType::TILDE); break;
+        case '!': add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG); break;
         case '=':
             if (match('>')) {
                 add_token(TokenType::EQUAL_GREATER);
@@ -521,9 +557,7 @@ void Scanner::scan_token() {
                 add_token(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
             }
             break;
-        case '<':
-            add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
-            break;
+        case '<': add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS); break;
         case '>':
             if (match('=')) {
                 add_token(TokenType::GREATER_EQUAL);
@@ -533,26 +567,19 @@ void Scanner::scan_token() {
                 add_token(TokenType::GREATER);
             }
             break;
-        case '/':  // Slash was not part of a comment
-            add_token(TokenType::SLASH);
-            break;
+        case '/': add_token(TokenType::SLASH); break;
 
-        case '"':
-            scan_string();
-            break;
-
-        case ':':
-            add_token(match(':') ? TokenType::COLON_COLON : TokenType::COLON);
-            break;
+        case '"': scan_interpolated_string('"'); break;
+        case '\'': scan_interpolated_string('\''); break;
+        case '`': scan_raw_string(); break;
 
         default:
-            // Report error for unexpected character.
-            std::cerr << "Line " << line_ << ": Error: Unexpected character '" << c << "'"
-                      << std::endl;
-            add_token(TokenType::ERROR);  // Or specific error token
+            std::cerr << "Line " << line_ << ": Error: Unexpected character '" << c << "'" << std::endl;
+            add_token(TokenType::ERROR);
             break;
     }
 }
 
 }  // namespace core
 }  // namespace tooi
+
