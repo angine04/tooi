@@ -6,6 +6,7 @@
 #include <stdexcept>  // For std::stod errors
 #include <unordered_map>
 #include <utility>  // For std::move
+#include <cctype>   // For std::isspace
 
 namespace tooi {
 namespace core {
@@ -300,7 +301,8 @@ std::string Token::to_string() const {
 
 // --- Scanner Implementation ---
 
-Scanner::Scanner(std::string source) : source_(std::move(source)) {}
+Scanner::Scanner(std::string source, ErrorReporter& error_reporter)
+    : source_(std::move(source)), error_reporter_(error_reporter) {}
 
 std::vector<Token> Scanner::scan_tokens() {
     while (!is_at_end()) {
@@ -351,6 +353,22 @@ char Scanner::peek_next() const {
     return source_[current_ + 1];
 }
 
+// Helper to report error at the current scanning position (start_ to current_)
+void Scanner::report_error_here(int length, const std::string& message) {
+    // Find the end of the current line
+    size_t line_end = source_.find('\n', line_start_);
+    if (line_end == std::string::npos) {
+        line_end = source_.length(); // Handle last line
+    }
+    std::string source_line = source_.substr(line_start_, line_end - line_start_);
+
+    // Calculate column (1-based)
+    // Use 'start_' as the beginning of the problematic token/char
+    int column = (start_ - line_start_) + 1;
+
+    error_reporter_.report_at(line_, column, length, source_line, message);
+}
+
 void Scanner::skip_whitespace_and_comments() {
     while (true) {
         char c = peek();
@@ -364,40 +382,52 @@ void Scanner::skip_whitespace_and_comments() {
             case '\n':
                 line_++;
                 advance();
+                line_start_ = current_; // Update line start index
                 break;
             case '/':
                 if (peek_next() == '/') {
-                    // A comment goes until the end of the line.
-                    while (peek() != '\n' && !is_at_end())
-                        advance();
+                    // Single-line comment
+                    while (peek() != '\n' && !is_at_end()) advance();
                 } else if (peek_next() == '*') {
-                    // C-style block comment (Bonus)
-                    advance();  // Consume /*
+                    // Simplified C-style block comment (no nesting)
+                    advance(); // Consume /*
                     advance();
-                    int nesting = 1;
-                    while (nesting > 0 && !is_at_end()) {
-                        if (peek() == '\n')
-                            line_++;
-                        if (peek() == '/' && peek_next() == '*') {
+                    int comment_start_line = line_; // For error reporting
+                    int comment_start_char = current_ - 2; // Position of opening /*
+
+                    while (!is_at_end()) {
+                        if (peek() == '*' && peek_next() == '/') {
+                            advance(); // Consume */
                             advance();
-                            advance();
-                            nesting++;
-                        } else if (peek() == '*' && peek_next() == '/') {
-                            advance();
-                            advance();
-                            nesting--;
-                        } else {
-                            advance();
+                            break; // Found the end
                         }
+                        if (peek() == '\n') {
+                            line_++;
+                            line_start_ = current_ + 1; // Update line start after newline
+                        }
+                        advance(); // Consume character inside comment
                     }
-                    if (nesting > 0) {
-                        // Unterminated block comment - report error?
-                        // For now, just continue scanning after the unterminated part
+
+                    if (is_at_end()) {
+                        // Unterminated comment - report error at the start of the comment
+                        // Need to recalculate line content for the original line
+                        size_t err_line_end = source_.find('\n', comment_start_char);
+                        if (err_line_end == std::string::npos) err_line_end = source_.length();
+                        size_t err_line_start = source_.rfind('\n', comment_start_char);
+                        if (err_line_start == std::string::npos) err_line_start = 0; else err_line_start++;
+                        std::string err_line = source_.substr(err_line_start, err_line_end - err_line_start);
+                        int err_column = (comment_start_char - err_line_start) + 1;
+                        error_reporter_.report_at(comment_start_line, err_column, 2, err_line, "Unterminated block comment.");
+                         // No need to add ERROR token here, just report and continue scanning after
                     }
+                    // IMPORTANT: After handling comment, continue the outer loop
+                    // to potentially skip more whitespace/comments that followed immediately
+                    // This continue replaces the implicit fallthrough/break behaviour
+                    continue; 
                 } else {
-                    return;  // It's just a slash, not a comment
+                    return; // It's just a slash, not a comment
                 }
-                break;
+                break; // Break from the switch after handling // or /*
             default:
                 return;
         }
@@ -412,7 +442,7 @@ void Scanner::scan_interpolated_string(char delimiter) {
         if (c == '\\') { // Escape sequence
             advance(); // Consume '\'
             if (is_at_end()) { // Escaped EOF
-                std::cerr << "Line " << line_ << ": Error: Unterminated escape sequence." << std::endl;
+                report_error_here(1, "Unterminated escape sequence.");
                 add_token(TokenType::ERROR);
                 return;
             }
@@ -425,10 +455,8 @@ void Scanner::scan_interpolated_string(char delimiter) {
                 case '\'': value_builder << '\''; break;
                 // Add other escapes like \r, \b, \f if needed
                 default:
-                    // Invalid escape, treat as literal backslash + char?
-                    // Or report error?
-                    std::cerr << "Line " << line_
-                              << ": Warning: Invalid escape sequence '\\" << escaped << "'. Treating as literal characters." << std::endl;
+                    // Report error at the invalid escaped char (current_ - 1)
+                    report_error_here(1, "Invalid escape sequence.");
                     value_builder << '\\';
                     value_builder << escaped;
                     break;
@@ -441,7 +469,7 @@ void Scanner::scan_interpolated_string(char delimiter) {
     }
 
     if (is_at_end()) {
-        std::cerr << "Line " << line_ << ": Error: Unterminated string literal." << std::endl;
+        report_error_here(1, "Unterminated string literal.");
         add_token(TokenType::ERROR);
         return;
     }
@@ -460,7 +488,7 @@ void Scanner::scan_raw_string() {
     }
 
     if (is_at_end()) {
-        std::cerr << "Line " << line_ << ": Error: Unterminated raw string literal." << std::endl;
+        report_error_here(1, "Unterminated raw string literal.");
         add_token(TokenType::ERROR);
         return;
     }
@@ -492,11 +520,11 @@ void Scanner::scan_number() {
         double value = std::stod(num_str);
         add_token(TokenType::NUMBER_LITERAL, value);
     } catch (const std::invalid_argument& ia) {
-        std::cerr << "Line " << line_ << ": Error: Invalid number format: " << num_str << std::endl;
-        add_token(TokenType::ERROR);  // Or specific error token
+        report_error_here(num_str.length(), "Invalid number format.");
+        add_token(TokenType::ERROR);
     } catch (const std::out_of_range& oor) {
-        std::cerr << "Line " << line_ << ": Error: Number out of range: " << num_str << std::endl;
-        add_token(TokenType::ERROR);  // Or specific error token
+        report_error_here(num_str.length(), "Number out of range.");
+        add_token(TokenType::ERROR);
     }
 }
 
@@ -573,8 +601,27 @@ void Scanner::scan_token() {
         case '\'': scan_interpolated_string('\''); break;
         case '`': scan_raw_string(); break;
 
-        default:
-            std::cerr << "Line " << line_ << ": Error: Unexpected character '" << c << "'" << std::endl;
+        default: // Handle unexpected character sequence
+            // Consume contiguous invalid characters
+            while (!is_at_end()) {
+                char next_char = peek();
+                // Check if the next character *could* start a valid token or is whitespace
+                // This check might need refinement depending on exact token rules
+                if (std::isspace(static_cast<unsigned char>(next_char)) ||
+                    is_alpha(next_char) ||
+                    is_digit(next_char) ||
+                    std::string("(){}[],.-+;*/@'#$?%^&|~<>!=:`").find(next_char) != std::string::npos)
+                {
+                    // Next character is whitespace or could start a valid token, stop consuming
+                    break;
+                }
+                 // Otherwise, consume the invalid character as part of the sequence
+                advance();
+            }
+
+            // Now report the error for the entire consumed sequence
+            int length = std::max(1, current_ - start_); // Ensure length is at least 1
+            report_error_here(length, "Unexpected character sequence.");
             add_token(TokenType::ERROR);
             break;
     }

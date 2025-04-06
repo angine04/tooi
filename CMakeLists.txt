@@ -9,15 +9,36 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# 添加可执行文件
-add_executable(tooi 
+# --- Linenoise Dependency ---
+# Define linenoise as a library using its source file
+add_library(linenoise STATIC
+    third-party/linenoise/linenoise.c
+)
+
+# Tell CMake where to find linenoise.h when compiling linenoise OR your code
+target_include_directories(linenoise PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/linenoise
+)
+
+# --- Your Main Executable --- 
+add_executable(tooi
     src/main.cpp
     src/core/interpreter.cpp
     src/core/scanner.cpp
+    src/core/error_reporter.cpp
     src/cli/args_parser.cpp
     src/cli/repl.cpp
     src/cli/run_from_file.cpp
 )
 
-# 指定 include 目录
-target_include_directories(tooi PUBLIC include)
+# Specify include directories for *your* project AFTER defining the target
+target_include_directories(tooi PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+# Link tooi against linenoise
+target_link_libraries(tooi PRIVATE linenoise)
+
+# Ensure your executable also knows about its own include dir (if not covered by INTERFACE above)
+# Usually redundant if INTERFACE is used on target_include_directories for tooi
+# target_include_directories(tooi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+// #include <csignal> // Definitely remove now
+
 /**
  * @namespace tooi
  * @brief The main namespace for the Tooi project.
@@ -30,6 +33,7 @@ public:
 
 private:
     bool verbose_ = false; // Flag for verbose output
+    // No signal-related members needed
 };
 
 } // namespace cli

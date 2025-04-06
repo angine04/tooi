@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
             }
             // Pass flag to run_from_file
             if (!tooi::cli::run_from_file(args_parser.get_filename(), verbose)) {
+                // run_from_file now returns false if errors occurred
                 exit_code = 1;
             }
         } break;

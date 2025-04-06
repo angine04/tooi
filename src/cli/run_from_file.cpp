@@ -60,13 +60,9 @@ bool run_from_file(const std::string& filename, bool verbose) {
 
     // file stream is automatically closed when it goes out of scope (RAII)
 
-    if (!success) {
-        // Interpreter error messages might be guarded by verbose flag inside run()
-        // No need for extra message here unless desired
-        return false;
-    }
-
-    return true; // Indicate successful file processing and script execution
+    // Return false if either the stream read failed (success=false)
+    // OR if the interpreter encountered lexical/parse/runtime errors.
+    return success && !interpreter.had_error();
 }
 
 } // namespace cli

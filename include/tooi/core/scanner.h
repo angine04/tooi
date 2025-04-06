@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "tooi/core/token.h" // Include the Token definition
+#include "tooi/core/error_reporter.h" // Include ErrorReporter
 
 namespace tooi {
 namespace core {
@@ -12,8 +13,9 @@ public:
     /**
      * @brief Constructs a Scanner instance.
      * @param source The source code string to scan.
+     * @param error_reporter Reference to the error reporter to use.
      */
-    Scanner(std::string source);
+    Scanner(std::string source, ErrorReporter& error_reporter);
 
     /**
      * @brief Scans the source code and returns a list of tokens.
@@ -34,6 +36,8 @@ private:
     int start_ = 0;   // Start index of the current lexeme being scanned
     int current_ = 0; // Current index scanning through the source
     int line_ = 1;    // Current line number
+    int line_start_ = 0; // Index of the start of the current line
+    ErrorReporter& error_reporter_; // Store reference to the reporter
 
     // Helper methods for scanning logic
     bool is_at_end() const;
@@ -53,6 +57,8 @@ private:
 
     // Helper to create an error token (could also directly add to tokens_)
     // Token make_error_token(const std::string& message) const;
+
+    void report_error_here(int length, const std::string& message); // Simplified reporting
 }; 
 
 } // namespace core

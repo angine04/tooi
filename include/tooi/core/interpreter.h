@@ -2,6 +2,7 @@
 
 #include <istream> // Include for std::istream
 #include <string>
+#include "tooi/core/error_reporter.h" // Include ErrorReporter header
 // #include <vector> // Example placeholder for state
 // #include <unordered_map> // Example placeholder for state
 
@@ -47,12 +48,16 @@ class Interpreter {
      */
     bool run(std::istream& input_stream);
 
+    // Add getter for error status
+    bool had_error() const;
+
    private:
     // Placeholder for interpreter state:
     // std::unordered_map<std::string, Value> variables_;
     // ExecutionEnvironment environment_;
     int execution_count_ = 0; // Simple example of state
     bool verbose_ = false; // Flag for verbose output
+    ErrorReporter error_reporter_; // Owns the error reporter
 };
 
 }  // namespace core

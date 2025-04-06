@@ -13,6 +13,7 @@
 
 #include "tooi/core/scanner.h" // Include the Scanner header
 #include "tooi/core/token.h"   // Include the Token header
+#include "tooi/core/error_reporter.h"
 
 namespace tooi {
 namespace core {
@@ -29,6 +30,7 @@ namespace core {
  *         Scanner errors (lexical errors) might result in ERROR tokens but won't return false here.
  */
 bool Interpreter::run(std::istream& input_stream) {
+    error_reporter_.reset(); // Reset error state for this run
     execution_count_++; // Increment state counter
     if (verbose_) {
         std::cout << "[Interpreter::run call #" << execution_count_ << "] Processing stream..." << std::endl;
@@ -41,15 +43,17 @@ bool Interpreter::run(std::istream& input_stream) {
 
     // Check for stream errors *after* reading
     if (input_stream.bad() || (input_stream.fail() && !input_stream.eof())) {
-         if (verbose_) std::cerr << "Error: Failed while reading from input stream." << std::endl;
-         return false;
+         // Report stream error using the reporter's new method
+         // Provide placeholder values as context isn't readily available here
+         error_reporter_.report_at(1, 1, 1, "", "Error reading input stream.");
+         return false; // Still return false on stream read error
     }
     if (input_stream.eof()) {
          input_stream.clear();
     }
 
     // 2. Scan the source string into tokens
-    Scanner scanner(std::move(source));
+    Scanner scanner(std::move(source), error_reporter_);
     std::vector<Token> tokens = scanner.scan_tokens();
 
     // 3. Print the tokens only if verbose mode is enabled
@@ -60,18 +64,30 @@ bool Interpreter::run(std::istream& input_stream) {
         }
     }
 
+    // After scanning, check if the scanner reported errors
+    if (error_reporter_.had_error()) {
+        // We might want to stop here, or continue to parsing to find more errors
+        // For now, let's return true but the caller can check had_error()
+    }
+
     // TODO: Placeholder for actual processing (Parsing, Evaluation):
-    // Parser parser(tokens);
+    // Parser parser(tokens, error_reporter_);
     // auto statements = parser.parse();
     // if (!parser.has_errors()) {
     //    evaluate(statements);
     // }
 
-    return true; // Indicate successful processing of the stream content (for now)
+    // Return true if no FATAL errors occurred (like stream read error)
+    // The caller should check interpreter.had_error() for lexical/parse/etc. errors
+    return true;
 }
 
 Interpreter::Interpreter(bool verbose)
     : verbose_(verbose) {}
+
+bool Interpreter::had_error() const {
+    return error_reporter_.had_error();
+}
 
 } // namespace core
 } // namespace tooi
