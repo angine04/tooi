@@ -6,14 +6,7 @@
 #include <iostream>
 #include <string>
 #include <vector> // For processing arguments
-
-namespace {
-// ANSI Color Codes (simple version)
-// Define separately here or move to a common header later
-const char* const COLOR_CYAN_BOLD = "\x1B[1;36m";
-const char* const COLOR_YELLOW = "\x1B[0;33m"; // Normal yellow
-const char* const COLOR_RESET = "\x1B[0m";
-} // anonymous namespace
+#include "tooi/cli/colors.h" // Use central color definitions
 
 namespace tooi {
 namespace cli {
@@ -93,13 +86,14 @@ bool ArgsParser::is_verbose() const {
  * Prints the standard help message to standard error (with color).
  */
 void ArgsParser::show_help(const char* program_name) const {
-    std::cerr << COLOR_CYAN_BOLD << "Usage:" << COLOR_RESET << " " << program_name << " [options] [file]\n";
-    std::cerr << COLOR_CYAN_BOLD << "\nOptions:\n" << COLOR_RESET;
-    std::cerr << "  " << COLOR_YELLOW << "-h, --help" << COLOR_RESET << "     Show this help message and exit\n";
-    std::cerr << "  " << COLOR_YELLOW << "-v, --version" << COLOR_RESET << "  Show version information and exit\n";
-    std::cerr << "  " << COLOR_YELLOW << "-V, --verbose" << COLOR_RESET << "  Enable verbose output during execution\n";
-    std::cerr << COLOR_CYAN_BOLD << "\nArguments:\n" << COLOR_RESET;
-    std::cerr << "  " << COLOR_YELLOW << "file" << COLOR_RESET << "           Execute the script from the specified file\n";
+    using namespace tooi::cli::colors; // Using declaration
+    std::cerr << BOLD_CYAN << "Usage:" << RESET << " " << program_name << " [options] [file]\n";
+    std::cerr << BOLD_CYAN << "\nOptions:\n" << RESET;
+    std::cerr << "  " << YELLOW << "-h, --help" << RESET << "     Show this help message and exit\n";
+    std::cerr << "  " << YELLOW << "-v, --version" << RESET << "  Show version information and exit\n";
+    std::cerr << "  " << YELLOW << "-V, --verbose" << RESET << "  Enable verbose output during execution\n";
+    std::cerr << BOLD_CYAN << "\nArguments:\n" << RESET;
+    std::cerr << "  " << YELLOW << "file" << RESET << "           Execute the script from the specified file\n";
     std::cerr << "\nIf no file is provided, tooi starts in REPL mode.\n";
 }
 

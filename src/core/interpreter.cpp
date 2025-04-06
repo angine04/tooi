@@ -14,6 +14,7 @@
 #include "tooi/core/scanner.h" // Include the Scanner header
 #include "tooi/core/token.h"   // Include the Token header
 #include "tooi/core/error_reporter.h"
+#include "tooi/cli/colors.h" // Include colors
 
 namespace tooi {
 namespace core {
@@ -30,10 +31,12 @@ namespace core {
  *         Scanner errors (lexical errors) might result in ERROR tokens but won't return false here.
  */
 bool Interpreter::run(std::istream& input_stream) {
+    using namespace tooi::cli::colors; // Add using declaration
     error_reporter_.reset(); // Reset error state for this run
     execution_count_++; // Increment state counter
     if (verbose_) {
-        std::cout << "[Interpreter::run call #" << execution_count_ << "] Processing stream..." << std::endl;
+        // Use Blue for verbose status messages from interpreter
+        std::cout << BOLD_BLUE << "[Interpreter::run call #" << execution_count_ << "] Processing stream..." << RESET << std::endl;
     }
 
     // 1. Read the entire stream into a string
@@ -67,11 +70,8 @@ bool Interpreter::run(std::istream& input_stream) {
 
     // After scanning, check if the scanner reported errors
     if (error_reporter_.had_error()) {
-        // Print a summary message and stop further processing (parsing, execution)
-        std::cerr << "Fatal: Halting due to lexical errors." << std::endl;
-        // Return true because the run *function* didn't fail fatally (like a stream read error).
-        // The caller (e.g., run_from_file) MUST check interpreter.had_error()
-        // to determine the actual success/failure of the interpretation.
+        // Use Bold Red for this halting message
+        std::cerr << BOLD_RED << "Fatal: Halting due to lexical errors." << RESET << std::endl;
         return true;
     }
 

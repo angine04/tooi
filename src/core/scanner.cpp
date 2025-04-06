@@ -1,5 +1,6 @@
 #include "tooi/core/scanner.h"
 #include "tooi/core/token.h"  // Include Token definitions (needs to be before use)
+#include "tooi/cli/colors.h" // Include colors
 
 #include <iostream>   // For error reporting
 #include <sstream>    // For Token::to_string
@@ -266,36 +267,36 @@ const char* Token::type_to_string(TokenType type) {
 }
 
 std::string Token::to_string() const {
+    using namespace tooi::cli::colors; // Using declaration
     std::stringstream ss;
-    ss << "Token [Type: " << Token::type_to_string(type) << ", Lexeme: '" << lexeme
-       << "', Literal: ";
+    // Apply colors: Cyan for Type, Yellow for Lexeme, Green for Literal
+    ss << "Token [Type: " << BOLD_CYAN << Token::type_to_string(type) << RESET
+       << ", Lexeme: '" << YELLOW << lexeme << RESET << "', Literal: " << BOLD_GREEN;
 
-    std::visit(
-        [&ss](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, std::monostate>) {
-                ss << "<none>";
-            } else if constexpr (std::is_same_v<T, std::string>) {
-                ss << '\"' << arg << '\"';  // Print strings in quotes
-            } else if constexpr (std::is_same_v<T, int32_t>) {
-                ss << arg << "i32";  // Add suffix for clarity
-            } else if constexpr (std::is_same_v<T, int64_t>) {
-                ss << arg << "i64";  // Add suffix for clarity
-            } else if constexpr (std::is_same_v<T, uint32_t>) {
-                ss << arg << "u32";  // Add suffix for clarity
-            } else if constexpr (std::is_same_v<T, uint64_t>) {
-                ss << arg << "u64";  // Add suffix for clarity
-            } else if constexpr (std::is_same_v<T, float>) {
-                ss << arg << "f";  // Add suffix for clarity
-            } else if constexpr (std::is_same_v<T, double>) {
-                ss << arg << "d";  // Add suffix for clarity (or just arg if default)
-            } else {
-                ss << "<unknown literal type>";
-            }
-        },
-        literal);
+    std::visit([&ss](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+            ss << "<none>";
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            ss << '\"' << arg << '\"';
+        } else if constexpr (std::is_same_v<T, int32_t>) {
+            ss << arg << "i32";
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+            ss << arg << "i64";
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+            ss << arg << "u32";
+        } else if constexpr (std::is_same_v<T, uint64_t>) {
+            ss << arg << "u64";
+        } else if constexpr (std::is_same_v<T, float>) {
+            ss << arg << "f";
+        } else if constexpr (std::is_same_v<T, double>) {
+            ss << arg << "d";
+        } else {
+             ss << "<unknown literal type>";
+        }
+    }, literal);
 
-    ss << ", Line: " << line << "]";
+    ss << RESET << ", Line: " << line << "]"; // Reset after literal
     return ss.str();
 }
 

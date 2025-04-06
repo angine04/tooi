@@ -8,7 +8,12 @@
 #include "tooi/cli/args_parser.h"
 #include "tooi/cli/repl.h"
 #include "tooi/cli/run_from_file.h"
+#include "tooi/cli/colors.h" // Include colors
 // #include "tooi/core/interpreter.h" // No longer directly needed here
+
+#ifdef _WIN32
+// ... windows enable virtual term ...
+#endif
 
 /**
  * @brief The main function, entry point of the program.
@@ -21,6 +26,11 @@
  * @return 0 on successful execution, 1 on error (argument error or file processing error).
  */
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // enable_windows_virtual_term(); // Call the function if needed
+#endif
+    using namespace tooi::cli::colors; // Using declaration
+
     // Use using declarations for clarity within the main function scope
     using tooi::cli::ArgsParser;
     using tooi::cli::Repl;
@@ -45,14 +55,16 @@ int main(int argc, char* argv[]) {
             break;
         case RunMode::REPL: {
             if (verbose) {
-                std::cout << "Starting REPL in verbose mode..." << std::endl;
+                // Use Magenta for verbose status
+                std::cout << BOLD_MAGENTA << "Starting REPL in verbose mode..." << RESET << std::endl;
             }
             Repl repl(verbose); // Pass flag to Repl constructor
             repl.run();
         } break;
         case RunMode::FILE: {
             if (verbose) {
-                std::cout << "Running file in verbose mode: " << args_parser.get_filename() << std::endl;
+                // Use Magenta for verbose status
+                std::cout << BOLD_MAGENTA << "Running file in verbose mode: " << args_parser.get_filename() << RESET << std::endl;
             }
             // Pass flag to run_from_file
             if (!tooi::cli::run_from_file(args_parser.get_filename(), verbose)) {
@@ -60,12 +72,12 @@ int main(int argc, char* argv[]) {
                 exit_code = 1;
             }
         } break;
-        case RunMode::ERROR:
-            // Error message might be available from args_parser if implemented
-            std::cerr << "Error: Invalid arguments." << std::endl;
+        case RunMode::ERROR: {
+            // Use Bold Red for argument errors reported by main
+            std::cerr << BOLD_RED << "Error: Invalid arguments." << RESET << std::endl;
             args_parser.show_help(argv[0]);
             exit_code = 1;  // Indicate argument error
-            break;
+        } break;
     }
 
     return exit_code;

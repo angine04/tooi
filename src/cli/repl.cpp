@@ -14,14 +14,7 @@
 
 #include "linenoise.h"              // For line editing, history, and input handling
 #include "tooi/core/interpreter.h"  // For the core interpreter logic
-
-namespace {
-// ANSI Color Codes (simple version)
-// Define separately here or move to a common header later
-const char* const COLOR_YELLOW_BOLD = "\x1B[1;33m";
-const char* const COLOR_YELLOW = "\x1B[0;33m";
-const char* const COLOR_RESET = "\x1B[0m";
-} // anonymous namespace
+#include "tooi/cli/colors.h"        // Use central color definitions
 
 namespace tooi {
 namespace cli {
@@ -42,6 +35,7 @@ Repl::Repl(bool verbose) : verbose_(verbose) {}
  * Ctrl+C interrupts the current input line, while Ctrl+D exits the REPL.
  */
 void Repl::run() {
+    using namespace tooi::cli::colors; // Using declaration
     core::Interpreter interpreter(verbose_);  // Create the interpreter instance
     std::string current_block;                // Buffer to accumulate multi-line input
     bool need_more_input = false;  // Flag to determine which prompt to show ('>' or '...')
@@ -56,7 +50,7 @@ void Repl::run() {
     linenoiseHistoryLoad(history_file.c_str());  // Load history from the file
 
     // --- Welcome Message ---
-    std::cout << "Welcome to Tooi REPL! Use Up/Down for history. "
+    std::cout << BOLD_GREEN << "Welcome to Tooi REPL!" << RESET << " Use Up/Down for history. "
               << "Finish block with empty line. Ctrl+C to interrupt, "
               << "Ctrl+D or @exit; to quit." << std::endl;
 
@@ -79,12 +73,13 @@ void Repl::run() {
                 // EAGAIN signals that Ctrl+C was pressed (interrupt) based on linenoise.c source.
                 consecutive_interrupts++;
                 // Print interrupt message in Bold Yellow
-                std::cout << COLOR_YELLOW_BOLD << "\nKeyboardInterrupt" << COLOR_RESET << std::endl;
+                std::cout << BOLD_YELLOW << "\nKeyboardInterrupt" << RESET << std::endl;
                 current_block.clear();    // Discard any partially entered block
                 need_more_input = false;  // Go back to the primary prompt
                 if (consecutive_interrupts >= 3) {
                     // Print hint message in normal Yellow
-                    std::cout << COLOR_YELLOW << "(Hint: Use @exit; or Ctrl+D to exit)" << COLOR_RESET << std::endl;
+                    std::cout << YELLOW << "(Hint: Use @exit; or Ctrl+D to exit)" << RESET << std::endl;
+                    consecutive_interrupts = 0;
                 }
                 continue;  // Go back to the start of the loop to show the prompt again
             } else if (errno == ENOENT) {
@@ -161,7 +156,7 @@ void Repl::run() {
     }  // End while(true) loop
 
     // --- REPL Exit ---
-    std::cout << "Exiting Tooi REPL." << std::endl;
+    std::cout << BOLD_GREEN << "Exiting Tooi REPL." << RESET << std::endl;
     // No explicit signal handler restoration needed as we didn't override linenoise's internal
     // handling.
 }
