@@ -34,7 +34,7 @@ void ArgsParser::parse(int argc, char* argv[]) {
         } else if (arg == "-v" || arg == "--version") { // Treat -v as version for now
             mode_ = RunMode::VERSION;
             return; // Version overrides everything else
-        } else if (arg == "--verbose") {
+        } else if (arg == "--verbose" || arg == "-V") {
             verbose_ = true;
             // Continue parsing other args
         } else if (arg.rfind("-", 0) == 0) {
@@ -97,7 +97,7 @@ void ArgsParser::show_help(const char* program_name) const {
     std::cerr << COLOR_CYAN_BOLD << "\nOptions:\n" << COLOR_RESET;
     std::cerr << "  " << COLOR_YELLOW << "-h, --help" << COLOR_RESET << "     Show this help message and exit\n";
     std::cerr << "  " << COLOR_YELLOW << "-v, --version" << COLOR_RESET << "  Show version information and exit\n";
-    std::cerr << "      " << COLOR_YELLOW << "--verbose" << COLOR_RESET << "  Enable verbose output during execution\n";
+    std::cerr << "  " << COLOR_YELLOW << "-V, --verbose" << COLOR_RESET << "  Enable verbose output during execution\n";
     std::cerr << COLOR_CYAN_BOLD << "\nArguments:\n" << COLOR_RESET;
     std::cerr << "  " << COLOR_YELLOW << "file" << COLOR_RESET << "           Execute the script from the specified file\n";
     std::cerr << "\nIf no file is provided, tooi starts in REPL mode.\n";
