@@ -54,6 +54,7 @@ bool Interpreter::run(std::istream& input_stream) {
 
     // 2. Scan the source string into tokens
     Scanner scanner(std::move(source), error_reporter_);
+    // source has been moved, do not use it again
     std::vector<Token> tokens = scanner.scan_tokens();
 
     // 3. Print the tokens only if verbose mode is enabled
@@ -66,8 +67,12 @@ bool Interpreter::run(std::istream& input_stream) {
 
     // After scanning, check if the scanner reported errors
     if (error_reporter_.had_error()) {
-        // We might want to stop here, or continue to parsing to find more errors
-        // For now, let's return true but the caller can check had_error()
+        // Print a summary message and stop further processing (parsing, execution)
+        std::cerr << "Fatal: Halting due to lexical errors." << std::endl;
+        // Return true because the run *function* didn't fail fatally (like a stream read error).
+        // The caller (e.g., run_from_file) MUST check interpreter.had_error()
+        // to determine the actual success/failure of the interpretation.
+        return true;
     }
 
     // TODO: Placeholder for actual processing (Parsing, Evaluation):

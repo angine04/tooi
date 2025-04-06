@@ -15,6 +15,14 @@
 #include "linenoise.h"              // For line editing, history, and input handling
 #include "tooi/core/interpreter.h"  // For the core interpreter logic
 
+namespace {
+// ANSI Color Codes (simple version)
+// Define separately here or move to a common header later
+const char* const COLOR_YELLOW_BOLD = "\x1B[1;33m";
+const char* const COLOR_YELLOW = "\x1B[0;33m";
+const char* const COLOR_RESET = "\x1B[0m";
+} // anonymous namespace
+
 namespace tooi {
 namespace cli {
 
@@ -38,6 +46,8 @@ void Repl::run() {
     std::string current_block;                // Buffer to accumulate multi-line input
     bool need_more_input = false;  // Flag to determine which prompt to show ('>' or '...')
     char *line_c_str = nullptr;    // Raw C-string buffer returned by linenoise
+    // TODO: Make this configurable. From env, config file or command line args.
+    // TODO: Toggle persistent history. From env, config file or command line flags.
     std::string history_file = ".tooi_history";  // File to store command history
     int consecutive_interrupts = 0;              // Counter for consecutive Ctrl+C presses
 
@@ -68,12 +78,13 @@ void Repl::run() {
             if (errno == EAGAIN) {
                 // EAGAIN signals that Ctrl+C was pressed (interrupt) based on linenoise.c source.
                 consecutive_interrupts++;
-                std::cout << "KeyboardInterrupt" << std::endl;
+                // Print interrupt message in Bold Yellow
+                std::cout << COLOR_YELLOW_BOLD << "\nKeyboardInterrupt" << COLOR_RESET << std::endl;
                 current_block.clear();    // Discard any partially entered block
                 need_more_input = false;  // Go back to the primary prompt
                 if (consecutive_interrupts >= 3) {
-                    // Provide a hint if the user presses Ctrl+C repeatedly
-                    std::cout << "(Hint: Use @exit; or Ctrl+D to exit)" << std::endl;
+                    // Print hint message in normal Yellow
+                    std::cout << COLOR_YELLOW << "(Hint: Use @exit; or Ctrl+D to exit)" << COLOR_RESET << std::endl;
                 }
                 continue;  // Go back to the start of the loop to show the prompt again
             } else if (errno == ENOENT) {

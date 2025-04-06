@@ -7,6 +7,14 @@
 #include <string>
 #include <vector> // For processing arguments
 
+namespace {
+// ANSI Color Codes (simple version)
+// Define separately here or move to a common header later
+const char* const COLOR_CYAN_BOLD = "\x1B[1;36m";
+const char* const COLOR_YELLOW = "\x1B[0;33m"; // Normal yellow
+const char* const COLOR_RESET = "\x1B[0m";
+} // anonymous namespace
+
 namespace tooi {
 namespace cli {
 
@@ -82,16 +90,16 @@ bool ArgsParser::is_verbose() const {
 }
 
 /**
- * Prints the standard help message to standard error.
+ * Prints the standard help message to standard error (with color).
  */
 void ArgsParser::show_help(const char* program_name) const {
-    std::cerr << "Usage: " << program_name << " [options] [file]\n";
-    std::cerr << "\nOptions:\n";
-    std::cerr << "  -h, --help     Show this help message and exit\n";
-    std::cerr << "  -v, --version  Show version information and exit\n";
-    std::cerr << "      --verbose  Enable verbose output during execution\n"; // Add verbose flag help
-    std::cerr << "\nArguments:\n";
-    std::cerr << "  file           Execute the script from the specified file\n";
+    std::cerr << COLOR_CYAN_BOLD << "Usage:" << COLOR_RESET << " " << program_name << " [options] [file]\n";
+    std::cerr << COLOR_CYAN_BOLD << "\nOptions:\n" << COLOR_RESET;
+    std::cerr << "  " << COLOR_YELLOW << "-h, --help" << COLOR_RESET << "     Show this help message and exit\n";
+    std::cerr << "  " << COLOR_YELLOW << "-v, --version" << COLOR_RESET << "  Show version information and exit\n";
+    std::cerr << "      " << COLOR_YELLOW << "--verbose" << COLOR_RESET << "  Enable verbose output during execution\n";
+    std::cerr << COLOR_CYAN_BOLD << "\nArguments:\n" << COLOR_RESET;
+    std::cerr << "  " << COLOR_YELLOW << "file" << COLOR_RESET << "           Execute the script from the specified file\n";
     std::cerr << "\nIf no file is provided, tooi starts in REPL mode.\n";
 }
 
