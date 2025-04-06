@@ -1,13 +1,13 @@
 #include "tooi/core/scanner.h"
+#include "tooi/cli/colors.h"  // Include colors
 #include "tooi/core/token.h"  // Include Token definitions (needs to be before use)
-#include "tooi/cli/colors.h" // Include colors
 
+#include <cctype>     // For std::isspace
 #include <iostream>   // For error reporting
 #include <sstream>    // For Token::to_string
 #include <stdexcept>  // For std::stod errors
 #include <unordered_map>
 #include <utility>  // For std::move
-#include <cctype>   // For std::isspace
 
 namespace tooi {
 namespace core {
@@ -267,36 +267,38 @@ const char* Token::type_to_string(TokenType type) {
 }
 
 std::string Token::to_string() const {
-    using namespace tooi::cli::colors; // Using declaration
+    using namespace tooi::cli::colors;  // Using declaration
     std::stringstream ss;
     // Apply colors: Cyan for Type, Yellow for Lexeme, Green for Literal
-    ss << "Token [Type: " << BOLD_CYAN << Token::type_to_string(type) << RESET
-       << ", Lexeme: '" << YELLOW << lexeme << RESET << "', Literal: " << BOLD_GREEN;
+    ss << "Token [Type: " << BOLD_CYAN << Token::type_to_string(type) << RESET << ", Lexeme: '"
+       << YELLOW << lexeme << RESET << "', Literal: " << BOLD_GREEN;
 
-    std::visit([&ss](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-            ss << "<none>";
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            ss << '\"' << arg << '\"';
-        } else if constexpr (std::is_same_v<T, int32_t>) {
-            ss << arg << "i32";
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            ss << arg << "i64";
-        } else if constexpr (std::is_same_v<T, uint32_t>) {
-            ss << arg << "u32";
-        } else if constexpr (std::is_same_v<T, uint64_t>) {
-            ss << arg << "u64";
-        } else if constexpr (std::is_same_v<T, float>) {
-            ss << arg << "f";
-        } else if constexpr (std::is_same_v<T, double>) {
-            ss << arg << "d";
-        } else {
-             ss << "<unknown literal type>";
-        }
-    }, literal);
+    std::visit(
+        [&ss](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                ss << "<none>";
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                ss << '"' << arg << '"';
+            } else if constexpr (std::is_same_v<T, int32_t>) {
+                ss << arg << "i32";
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                ss << arg;
+            } else if constexpr (std::is_same_v<T, uint32_t>) {
+                ss << arg << "u32";
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                ss << arg << "u64";
+            } else if constexpr (std::is_same_v<T, float>) {
+                ss << arg << "f";
+            } else if constexpr (std::is_same_v<T, double>) {
+                ss << arg << "d";
+            } else {
+                ss << "<unknown literal type>";
+            }
+        },
+        literal);
 
-    ss << RESET << ", Line: " << line << "]"; // Reset after literal
+    ss << RESET << ", Line: " << line << "]";  // Reset after literal
     return ss.str();
 }
 
@@ -359,7 +361,7 @@ void Scanner::report_error_here(int length, const std::string& message) {
     // Find the end of the current line
     size_t line_end = source_.find('\n', line_start_);
     if (line_end == std::string::npos) {
-        line_end = source_.length(); // Handle last line
+        line_end = source_.length();  // Handle last line
     }
     std::string source_line = source_.substr(line_start_, line_end - line_start_);
 
@@ -383,52 +385,59 @@ void Scanner::skip_whitespace_and_comments() {
             case '\n':
                 line_++;
                 advance();
-                line_start_ = current_; // Update line start index
+                line_start_ = current_;  // Update line start index
                 break;
             case '/':
                 if (peek_next() == '/') {
                     // Single-line comment
-                    while (peek() != '\n' && !is_at_end()) advance();
+                    while (peek() != '\n' && !is_at_end())
+                        advance();
                 } else if (peek_next() == '*') {
                     // Simplified C-style block comment (no nesting)
-                    advance(); // Consume /*
+                    advance();  // Consume /*
                     advance();
-                    int comment_start_line = line_; // For error reporting
-                    int comment_start_char = current_ - 2; // Position of opening /*
+                    int comment_start_line = line_;         // For error reporting
+                    int comment_start_char = current_ - 2;  // Position of opening /*
 
                     while (!is_at_end()) {
                         if (peek() == '*' && peek_next() == '/') {
-                            advance(); // Consume */
+                            advance();  // Consume */
                             advance();
-                            break; // Found the end
+                            break;  // Found the end
                         }
                         if (peek() == '\n') {
                             line_++;
-                            line_start_ = current_ + 1; // Update line start after newline
+                            line_start_ = current_ + 1;  // Update line start after newline
                         }
-                        advance(); // Consume character inside comment
+                        advance();  // Consume character inside comment
                     }
 
                     if (is_at_end()) {
                         // Unterminated comment - report error at the start of the comment
                         // Need to recalculate line content for the original line
                         size_t err_line_end = source_.find('\n', comment_start_char);
-                        if (err_line_end == std::string::npos) err_line_end = source_.length();
+                        if (err_line_end == std::string::npos)
+                            err_line_end = source_.length();
                         size_t err_line_start = source_.rfind('\n', comment_start_char);
-                        if (err_line_start == std::string::npos) err_line_start = 0; else err_line_start++;
-                        std::string err_line = source_.substr(err_line_start, err_line_end - err_line_start);
+                        if (err_line_start == std::string::npos)
+                            err_line_start = 0;
+                        else
+                            err_line_start++;
+                        std::string err_line =
+                            source_.substr(err_line_start, err_line_end - err_line_start);
                         int err_column = (comment_start_char - err_line_start) + 1;
-                        error_reporter_.report_at(comment_start_line, err_column, 2, err_line, "Unterminated block comment.");
-                         // No need to add ERROR token here, just report and continue scanning after
+                        error_reporter_.report_at(comment_start_line, err_column, 2, err_line,
+                                                  "Unterminated block comment.");
+                        // No need to add ERROR token here, just report and continue scanning after
                     }
                     // IMPORTANT: After handling comment, continue the outer loop
                     // to potentially skip more whitespace/comments that followed immediately
                     // This continue replaces the implicit fallthrough/break behaviour
-                    continue; 
+                    continue;
                 } else {
-                    return; // It's just a slash, not a comment
+                    return;  // It's just a slash, not a comment
                 }
-                break; // Break from the switch after handling // or /*
+                break;  // Break from the switch after handling // or /*
             default:
                 return;
         }
@@ -440,20 +449,30 @@ void Scanner::scan_interpolated_string(char delimiter) {
     std::stringstream value_builder;
     while (peek() != delimiter && !is_at_end()) {
         char c = peek();
-        if (c == '\\') { // Escape sequence
-            advance(); // Consume '\'
-            if (is_at_end()) { // Escaped EOF
+        if (c == '\\') {        // Escape sequence
+            advance();          // Consume '\'
+            if (is_at_end()) {  // Escaped EOF
                 report_error_here(1, "Unterminated escape sequence.");
                 add_token(TokenType::ERROR);
                 return;
             }
-            char escaped = advance(); // Consume character after '\'
+            char escaped = advance();  // Consume character after '\'
             switch (escaped) {
-                case 'n':  value_builder << '\n'; break;
-                case 't':  value_builder << '\t'; break;
-                case '\\': value_builder << '\\'; break;
-                case '"': value_builder << '"'; break;
-                case '\'': value_builder << '\''; break;
+                case 'n':
+                    value_builder << '\n';
+                    break;
+                case 't':
+                    value_builder << '\t';
+                    break;
+                case '\\':
+                    value_builder << '\\';
+                    break;
+                case '"':
+                    value_builder << '"';
+                    break;
+                case '\'':
+                    value_builder << '\'';
+                    break;
                 // Add other escapes like \r, \b, \f if needed
                 default:
                     // Report error at the invalid escaped char (current_ - 1)
@@ -463,7 +482,8 @@ void Scanner::scan_interpolated_string(char delimiter) {
                     break;
             }
         } else {
-            if (c == '\n') line_++; // Still track line numbers
+            if (c == '\n')
+                line_++;  // Still track line numbers
             value_builder << c;
             advance();
         }
@@ -484,7 +504,8 @@ void Scanner::scan_interpolated_string(char delimiter) {
 // Handles raw strings (`...`) without escape sequences
 void Scanner::scan_raw_string() {
     while (peek() != '`' && !is_at_end()) {
-        if (peek() == '\n') line_++;
+        if (peek() == '\n')
+            line_++;
         advance();
     }
 
@@ -503,28 +524,165 @@ void Scanner::scan_raw_string() {
 }
 
 void Scanner::scan_number() {
-    while (is_digit(peek()))
-        advance();
+    size_t num_start = start_;
+    bool has_decimal = false;
 
-    // Look for a fractional part.
-    if (peek() == '.' && is_digit(peek_next())) {
-        // Consume the "."
+    // 1. Scan the integer part
+    while (is_digit(peek())) {
         advance();
-        while (is_digit(peek()))
-            advance();
     }
 
-    // Convert the substring to a double
-    // Consider adding error handling for std::stod
-    std::string num_str = source_.substr(start_, current_ - start_);
+    // 2. Scan the optional fractional part
+    if (peek() == '.' && is_digit(peek_next())) {
+        has_decimal = true;
+        advance();  // Consume the '.'
+        while (is_digit(peek())) {
+            advance();
+        }
+    } else if (peek() == '.') {
+        // Error: Decimal point not followed by a digit
+        // Don't consume the '.', leave it for the default error handler
+        // Report error at the position of the invalid '.'
+        report_error_here(1, "Decimal point must be followed by digits.");
+        add_token(TokenType::ERROR);
+        // Need to ensure the scanner progresses past the number part before the dot
+        // but doesn't consume the dot itself here.
+        // The main scan_token loop will handle the dot or error out on it.
+        // If start_ == current_ (only '.' was seen), let default handler manage.
+        // If digits were seen before '.', we've advanced 'current_', so the main loop
+        // will see '.' next.
+        // Just return, the state is such that the main loop will process the '.' next.
+        if (current_ > start_) {  // If we consumed digits before the dot
+            // Add a token for the digits scanned *before* the invalid dot
+            // This might be complex, perhaps just letting the default handler
+            // catch the '.' after a number is simpler? Let's stick to reporting
+            // the specific error here and adding an ERROR token.
+            return;  // Let the main loop handle the '.' token or error
+        } else {     // '.' was the first character seen after start_
+            // Let the default handler in scan_token deal with '.'
+            // This path seems complex, maybe rethink.
+            report_error_here(1, "Decimal point must be followed by digits.");
+            add_token(TokenType::ERROR);
+            // Do NOT advance past the '.', the next call to scan_token should see it.
+            return;
+        }
+    }
+
+    // <<< NEW CHECK for multiple decimal points >>>
+    if (peek() == '.') {
+        // Error: Found a second decimal point immediately after the number part.
+        advance(); // Consume the second '.' to include in error lexeme
+        // Optionally consume subsequent digits if we want 1.2.3 to be one error token
+        while(is_digit(peek())) {
+            advance();
+        }
+        // Report error covering the whole invalid sequence from num_start
+        size_t error_len = current_ - num_start;
+        report_error_here(error_len, "Invalid number format: multiple decimal points.");
+        add_token(TokenType::ERROR); // add_token uses start_ and current_ for lexeme
+        return;
+    }
+
+    size_t num_end = current_;  // End of the numeric part (digits + optional fraction)
+    std::string num_str = source_.substr(num_start, num_end - num_start);
+
+    // 3. Scan the optional suffix
+    std::string suffix = "";
+    size_t suffix_start = current_;
+    if (is_alpha(peek())) {                 // Potential suffix start
+        while (is_alpha_numeric(peek())) {  // Read potential suffix chars
+            advance();
+        }
+        suffix = source_.substr(suffix_start, current_ - suffix_start);
+    }
+
+    // 4. Validate suffix and determine type, then parse
+    TokenLiteral literal = std::monostate{};
+    bool parse_ok = false;
+
     try {
-        double value = std::stod(num_str);
-        add_token(TokenType::NUMBER_LITERAL, value);
+        if (suffix == "f") {
+            float value = std::stof(num_str);
+            literal = value;
+            parse_ok = true;
+        } else if (suffix == "d") {
+            // 'd' suffix is primarily for clarity, acts like no suffix + decimal
+            double value = std::stod(num_str);
+            literal = value;
+            parse_ok = true;
+        } else if (suffix == "i32") {
+            if (has_decimal) {
+                report_error_here(num_str.length() + suffix.length(),
+                                  "Cannot use integer suffix 'i32' with decimal point.");
+                add_token(TokenType::ERROR);
+                return;
+            }
+            // Note: std::stoi parses as int, check range for int32_t if necessary
+            long long intermediate = std::stoll(num_str);  // Parse as wider type first
+            if (intermediate < INT32_MIN || intermediate > INT32_MAX) {
+                throw std::out_of_range("i32");
+            }
+            literal = static_cast<int32_t>(intermediate);
+            parse_ok = true;
+        } else if (suffix == "i" || suffix == "i64" || (suffix.empty() && !has_decimal)) {
+            if (has_decimal) {
+                report_error_here(num_str.length() + suffix.length(),
+                                  "Cannot use integer suffix '" + suffix + "' with decimal point.");
+                add_token(TokenType::ERROR);
+                return;
+            }
+            int64_t value = std::stoll(num_str);
+            literal = value;
+            parse_ok = true;
+        } else if (suffix == "u32") {
+            if (has_decimal) {
+                report_error_here(num_str.length() + suffix.length(),
+                                  "Cannot use integer suffix 'u32' with decimal point.");
+                add_token(TokenType::ERROR);
+                return;
+            }
+            unsigned long long intermediate = std::stoull(num_str);  // Parse as wider type first
+            if (intermediate > UINT32_MAX) {
+                throw std::out_of_range("u32");
+            }
+            literal = static_cast<uint32_t>(intermediate);
+            parse_ok = true;
+        } else if (suffix == "u" || suffix == "u64") {
+            if (has_decimal) {
+                report_error_here(num_str.length() + suffix.length(),
+                                  "Cannot use integer suffix '" + suffix + "' with decimal point.");
+                add_token(TokenType::ERROR);
+                return;
+            }
+            uint64_t value = std::stoull(num_str);
+            literal = value;
+            parse_ok = true;
+        } else if (suffix.empty() && has_decimal) {
+            // Default float is double
+            double value = std::stod(num_str);
+            literal = value;
+            parse_ok = true;
+        } else if (!suffix.empty()) {
+            // Invalid suffix
+            report_error_here(suffix.length(), "Invalid numeric suffix: '" + suffix + "'.");
+            add_token(TokenType::ERROR);
+            return;  // Don't add NUMBER token
+        }
+        // Should not happen if logic is correct, but handle case where suffix was empty
+        // and no decimal was present (handled by 'i'/'i64' case implicitly)
+
+        if (parse_ok) {
+            add_token(TokenType::NUMBER_LITERAL, literal);
+        }
+        // else: error was reported and ERROR token added within suffix checks or catch block
+
     } catch (const std::invalid_argument& ia) {
-        report_error_here(num_str.length(), "Invalid number format.");
+        report_error_here(num_str.length() + suffix.length(),
+                          "Invalid number format for specified type.");
         add_token(TokenType::ERROR);
     } catch (const std::out_of_range& oor) {
-        report_error_here(num_str.length(), "Number out of range.");
+        report_error_here(num_str.length() + suffix.length(),
+                          "Number out of range for specified type ('" + suffix + "').");
         add_token(TokenType::ERROR);
     }
 }
@@ -548,37 +706,90 @@ void Scanner::scan_token() {
     skip_whitespace_and_comments();
     start_ = current_;
 
-    if (is_at_end()) return;
+    if (is_at_end())
+        return;
 
     char c = advance();
 
-    if (is_alpha(c)) { scan_identifier(); return; }
-    if (is_digit(c)) { scan_number(); return; }
+    if (is_alpha(c)) {
+        scan_identifier();
+        return;
+    }
+    if (is_digit(c)) {
+        scan_number();
+        return;
+    }
 
     switch (c) {
-        case '(': add_token(TokenType::LEFT_PAREN); break;
-        case ')': add_token(TokenType::RIGHT_PAREN); break;
-        case '{': add_token(TokenType::LEFT_BRACE); break;
-        case '}': add_token(TokenType::RIGHT_BRACE); break;
-        case '[': add_token(TokenType::LEFT_BRACKET); break;
-        case ']': add_token(TokenType::RIGHT_BRACKET); break;
-        case ',': add_token(TokenType::COMMA); break;
-        case '.': add_token(TokenType::DOT); break;
-        case '-': add_token(match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS); break;
-        case '+': add_token(TokenType::PLUS); break;
-        case ';': add_token(TokenType::SEMICOLON); break;
-        case '*': add_token(TokenType::ASTERISK); break;
-        case '@': add_token(TokenType::AT); break;
-        case '#': add_token(TokenType::HASHTAG); break;
-        case '$': add_token(TokenType::DOLLAR); break;
-        case '?': add_token(TokenType::QUESTION); break;
-        case ':': add_token(match(':') ? TokenType::COLON_COLON : TokenType::COLON); break;
-        case '^': add_token(TokenType::CARET); break;
-        case '%': add_token(TokenType::PERCENT); break;
-        case '&': add_token(TokenType::AMPERSAND); break;
-        case '|': add_token(TokenType::PIPE); break;
-        case '~': add_token(TokenType::TILDE); break;
-        case '!': add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG); break;
+        case '(':
+            add_token(TokenType::LEFT_PAREN);
+            break;
+        case ')':
+            add_token(TokenType::RIGHT_PAREN);
+            break;
+        case '{':
+            add_token(TokenType::LEFT_BRACE);
+            break;
+        case '}':
+            add_token(TokenType::RIGHT_BRACE);
+            break;
+        case '[':
+            add_token(TokenType::LEFT_BRACKET);
+            break;
+        case ']':
+            add_token(TokenType::RIGHT_BRACKET);
+            break;
+        case ',':
+            add_token(TokenType::COMMA);
+            break;
+        case '.':
+            add_token(TokenType::DOT);
+            break;
+        case '-':
+            add_token(match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS);
+            break;
+        case '+':
+            add_token(TokenType::PLUS);
+            break;
+        case ';':
+            add_token(TokenType::SEMICOLON);
+            break;
+        case '*':
+            add_token(TokenType::ASTERISK);
+            break;
+        case '@':
+            add_token(TokenType::AT);
+            break;
+        case '#':
+            add_token(TokenType::HASHTAG);
+            break;
+        case '$':
+            add_token(TokenType::DOLLAR);
+            break;
+        case '?':
+            add_token(TokenType::QUESTION);
+            break;
+        case ':':
+            add_token(match(':') ? TokenType::COLON_COLON : TokenType::COLON);
+            break;
+        case '^':
+            add_token(TokenType::CARET);
+            break;
+        case '%':
+            add_token(TokenType::PERCENT);
+            break;
+        case '&':
+            add_token(TokenType::AMPERSAND);
+            break;
+        case '|':
+            add_token(TokenType::PIPE);
+            break;
+        case '~':
+            add_token(TokenType::TILDE);
+            break;
+        case '!':
+            add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
+            break;
         case '=':
             if (match('>')) {
                 add_token(TokenType::EQUAL_GREATER);
@@ -586,7 +797,9 @@ void Scanner::scan_token() {
                 add_token(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
             }
             break;
-        case '<': add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS); break;
+        case '<':
+            add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+            break;
         case '>':
             if (match('=')) {
                 add_token(TokenType::GREATER_EQUAL);
@@ -596,32 +809,39 @@ void Scanner::scan_token() {
                 add_token(TokenType::GREATER);
             }
             break;
-        case '/': add_token(TokenType::SLASH); break;
+        case '/':
+            add_token(TokenType::SLASH);
+            break;
 
-        case '"': scan_interpolated_string('"'); break;
-        case '\'': scan_interpolated_string('\''); break;
-        case '`': scan_raw_string(); break;
+        case '"':
+            scan_interpolated_string('"');
+            break;
+        case '\'':
+            scan_interpolated_string('\'');
+            break;
+        case '`':
+            scan_raw_string();
+            break;
 
-        default: // Handle unexpected character sequence
+        default:  // Handle unexpected character sequence
             // Consume contiguous invalid characters
             while (!is_at_end()) {
                 char next_char = peek();
                 // Check if the next character *could* start a valid token or is whitespace
                 // This check might need refinement depending on exact token rules
-                if (std::isspace(static_cast<unsigned char>(next_char)) ||
-                    is_alpha(next_char) ||
+                if (std::isspace(static_cast<unsigned char>(next_char)) || is_alpha(next_char) ||
                     is_digit(next_char) ||
-                    std::string("(){}[],.-+;*/@'#$?%^&|~<>!=:`").find(next_char) != std::string::npos)
-                {
+                    std::string("(){}[],.-+;*/@'#$?%^&|~<>!=:`").find(next_char) !=
+                        std::string::npos) {
                     // Next character is whitespace or could start a valid token, stop consuming
                     break;
                 }
-                 // Otherwise, consume the invalid character as part of the sequence
+                // Otherwise, consume the invalid character as part of the sequence
                 advance();
             }
 
             // Now report the error for the entire consumed sequence
-            int length = std::max(1, current_ - start_); // Ensure length is at least 1
+            int length = std::max(1, current_ - start_);  // Ensure length is at least 1
             report_error_here(length, "Unexpected character sequence.");
             add_token(TokenType::ERROR);
             break;
@@ -630,4 +850,3 @@ void Scanner::scan_token() {
 
 }  // namespace core
 }  // namespace tooi
-

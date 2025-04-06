@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint> // For integer types
 #include <string>
 #include <variant>
 #include <vector>
