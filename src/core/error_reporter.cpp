@@ -1,9 +1,8 @@
 #include "tooi/core/error_reporter.h"
-
-#include <iostream>
-#include <string>
-#include <algorithm> // For std::max
-#include "tooi/cli/colors.h" // Use central color definitions
+#include "tooi/cli/colors.h"
+#include "tooi/core/error_registry.h" // Added for ErrorRegistry
+#include <fmt/format.h>            // Added for fmt::format
+#include <sstream>
 
 namespace tooi {
 namespace core {
