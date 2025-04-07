@@ -4,7 +4,6 @@
  */
 #include "tooi/core/interpreter.h"
 
-#include <fstream> // Still potentially useful
 #include <iostream>
 #include <istream>
 #include <sstream> // Needed to read stream into string

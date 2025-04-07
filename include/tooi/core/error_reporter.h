@@ -4,7 +4,6 @@
 #include "tooi/core/error_registry.h"  // Added: Include definition for ErrorRegistry
 #include <fmt/core.h>    // Added for fmt::format_args (forward declare might work too)
 #include <fmt/format.h>  // Include the full format library for fmt::format
-#include <iostream>      // For std::cerr
 #include <string>
 
 namespace tooi {
