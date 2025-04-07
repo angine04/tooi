@@ -13,15 +13,19 @@ enum class ErrorCode {
     // --- Scanner Errors ---
     Scanner_InvalidCharacter,
     Scanner_UnterminatedString,
+    Scanner_UnterminatedEscapeSequence,
+    Scanner_InvalidEscapeSequence,
+    Scanner_UnterminatedRawString,
+    Scanner_UnterminatedBlockComment,
+    Scanner_UnexpectedCharacterSequence,
     Scanner_MalformedNumber_DecimalRequiresDigit,  // e.g., "1."
     Scanner_MalformedNumber_MultipleDecimals,      // e.g., "1.2.3"
     Scanner_InvalidNumericSuffix,                  // e.g., "123xyz"
+    Scanner_IntegerSuffixWithDecimal,             // e.g., "1.2i32"
     Scanner_SuffixRequiresNoDecimal_Int,           // e.g., "1.2i32"
-    // Note: The rule forbidding 'f' with decimal was removed, keeping enum value commented out for
-    // history
-    // Scanner_SuffixRequiresNoDecimal_Float,    // e.g., "1.2f"
     Scanner_NumberParseError_Invalid,     // std::invalid_argument during conversion
     Scanner_NumberParseError_OutOfRange,  // std::out_of_range during conversion
+    Scanner_InvalidCharacterInNumber,     // 新增：无效的字符在数字中
 
     // --- Parser Errors ---
     // TODO: Add parser error codes
@@ -36,7 +40,10 @@ enum class ErrorCode {
     // TODO: Add runtime error codes
 
     // --- General/Internal Errors ---
-    Registry_UnknownErrorCode  // Fallback if an unknown code is requested
+    Registry_UnknownErrorCode,  // Fallback if an unknown code is requested
+
+    // --- Interpreter Errors ---
+    Interpreter_StreamReadError,  // Error reading from input stream
 };
 
 /**

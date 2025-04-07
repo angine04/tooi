@@ -356,22 +356,6 @@ char Scanner::peek_next() const {
     return source_[current_ + 1];
 }
 
-// Helper to report error at the current scanning position (start_ to current_)
-void Scanner::report_error_here(int length, const std::string& message) {
-    // Find the end of the current line
-    size_t line_end = source_.find('\n', line_start_);
-    if (line_end == std::string::npos) {
-        line_end = source_.length();  // Handle last line
-    }
-    std::string source_line = source_.substr(line_start_, line_end - line_start_);
-
-    // Calculate column (1-based)
-    // Use 'start_' as the beginning of the problematic token/char
-    int column = (start_ - line_start_) + 1;
-
-    error_reporter_.report_at(line_, column, length, source_line, message);
-}
-
 void Scanner::skip_whitespace_and_comments() {
     while (true) {
         char c = peek();
@@ -427,7 +411,7 @@ void Scanner::skip_whitespace_and_comments() {
                             source_.substr(err_line_start, err_line_end - err_line_start);
                         int err_column = (comment_start_char - err_line_start) + 1;
                         error_reporter_.report_at(comment_start_line, err_column, 2, err_line,
-                                                  "Unterminated block comment.");
+                                                  ErrorCode::Scanner_UnterminatedBlockComment);
                         // No need to add ERROR token here, just report and continue scanning after
                     }
                     // IMPORTANT: After handling comment, continue the outer loop
@@ -452,7 +436,7 @@ void Scanner::scan_interpolated_string(char delimiter) {
         if (c == '\\') {        // Escape sequence
             advance();          // Consume '\'
             if (is_at_end()) {  // Escaped EOF
-                report_error_here(1, "Unterminated escape sequence.");
+                report_error_code_here(1, ErrorCode::Scanner_UnterminatedEscapeSequence);
                 add_token(TokenType::ERROR);
                 return;
             }
@@ -476,7 +460,7 @@ void Scanner::scan_interpolated_string(char delimiter) {
                 // Add other escapes like \r, \b, \f if needed
                 default:
                     // Report error at the invalid escaped char (current_ - 1)
-                    report_error_here(1, "Invalid escape sequence.");
+                    report_error_code_here(1, ErrorCode::Scanner_InvalidEscapeSequence);
                     value_builder << '\\';
                     value_builder << escaped;
                     break;
@@ -490,7 +474,7 @@ void Scanner::scan_interpolated_string(char delimiter) {
     }
 
     if (is_at_end()) {
-        report_error_here(1, "Unterminated string literal.");
+        report_error_code_here(1, ErrorCode::Scanner_UnterminatedString);
         add_token(TokenType::ERROR);
         return;
     }
@@ -510,7 +494,7 @@ void Scanner::scan_raw_string() {
     }
 
     if (is_at_end()) {
-        report_error_here(1, "Unterminated raw string literal.");
+        report_error_code_here(1, ErrorCode::Scanner_UnterminatedRawString);
         add_token(TokenType::ERROR);
         return;
     }
@@ -543,7 +527,7 @@ void Scanner::scan_number() {
         // Error: Decimal point not followed by a digit
         // Don't consume the '.', leave it for the default error handler
         // Report error at the position of the invalid '.'
-        report_error_here(1, "Decimal point must be followed by digits.");
+        report_error_code_here(1, ErrorCode::Scanner_InvalidCharacterInNumber, '.');
         add_token(TokenType::ERROR);
         // Need to ensure the scanner progresses past the number part before the dot
         // but doesn't consume the dot itself here.
@@ -561,7 +545,7 @@ void Scanner::scan_number() {
         } else {     // '.' was the first character seen after start_
             // Let the default handler in scan_token deal with '.'
             // This path seems complex, maybe rethink.
-            report_error_here(1, "Decimal point must be followed by digits.");
+            report_error_code_here(1, ErrorCode::Scanner_InvalidCharacterInNumber, '.');
             add_token(TokenType::ERROR);
             // Do NOT advance past the '.', the next call to scan_token should see it.
             return;
@@ -578,7 +562,7 @@ void Scanner::scan_number() {
         }
         // Report error covering the whole invalid sequence from num_start
         size_t error_len = current_ - num_start;
-        report_error_here(error_len, "Invalid number format: multiple decimal points.");
+        report_error_code_here(error_len, ErrorCode::Scanner_InvalidCharacterInNumber, '.');
         add_token(TokenType::ERROR); // add_token uses start_ and current_ for lexeme
         return;
     }
@@ -612,8 +596,9 @@ void Scanner::scan_number() {
             parse_ok = true;
         } else if (suffix == "i32") {
             if (has_decimal) {
-                report_error_here(num_str.length() + suffix.length(),
-                                  "Cannot use integer suffix 'i32' with decimal point.");
+                report_error_code_here(num_str.length() + suffix.length(),
+                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
+                                   suffix);
                 add_token(TokenType::ERROR);
                 return;
             }
@@ -626,8 +611,9 @@ void Scanner::scan_number() {
             parse_ok = true;
         } else if (suffix == "i" || suffix == "i64" || (suffix.empty() && !has_decimal)) {
             if (has_decimal) {
-                report_error_here(num_str.length() + suffix.length(),
-                                  "Cannot use integer suffix '" + suffix + "' with decimal point.");
+                report_error_code_here(num_str.length() + suffix.length(),
+                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
+                                   suffix);
                 add_token(TokenType::ERROR);
                 return;
             }
@@ -636,8 +622,9 @@ void Scanner::scan_number() {
             parse_ok = true;
         } else if (suffix == "u32") {
             if (has_decimal) {
-                report_error_here(num_str.length() + suffix.length(),
-                                  "Cannot use integer suffix 'u32' with decimal point.");
+                report_error_code_here(num_str.length() + suffix.length(),
+                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
+                                   suffix);
                 add_token(TokenType::ERROR);
                 return;
             }
@@ -649,8 +636,9 @@ void Scanner::scan_number() {
             parse_ok = true;
         } else if (suffix == "u" || suffix == "u64") {
             if (has_decimal) {
-                report_error_here(num_str.length() + suffix.length(),
-                                  "Cannot use integer suffix '" + suffix + "' with decimal point.");
+                report_error_code_here(num_str.length() + suffix.length(),
+                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
+                                   suffix);
                 add_token(TokenType::ERROR);
                 return;
             }
@@ -664,9 +652,11 @@ void Scanner::scan_number() {
             parse_ok = true;
         } else if (!suffix.empty()) {
             // Invalid suffix
-            report_error_here(suffix.length(), "Invalid numeric suffix: '" + suffix + "'.");
+            report_error_code_here(suffix.length(), 
+                                   ErrorCode::Scanner_InvalidNumericSuffix, 
+                                   suffix); // Pass suffix as argument for formatting
             add_token(TokenType::ERROR);
-            return;  // Don't add NUMBER token
+            return; // Don't add NUMBER token
         }
         // Should not happen if logic is correct, but handle case where suffix was empty
         // and no decimal was present (handled by 'i'/'i64' case implicitly)
@@ -677,12 +667,14 @@ void Scanner::scan_number() {
         // else: error was reported and ERROR token added within suffix checks or catch block
 
     } catch (const std::invalid_argument& ia) {
-        report_error_here(num_str.length() + suffix.length(),
-                          "Invalid number format for specified type.");
+        report_error_code_here(num_str.length() + suffix.length(),
+                           ErrorCode::Scanner_NumberParseError_Invalid,
+                           suffix);
         add_token(TokenType::ERROR);
     } catch (const std::out_of_range& oor) {
-        report_error_here(num_str.length() + suffix.length(),
-                          "Number out of range for specified type ('" + suffix + "').");
+        report_error_code_here(num_str.length() + suffix.length(),
+                           ErrorCode::Scanner_NumberParseError_OutOfRange,
+                           suffix);
         add_token(TokenType::ERROR);
     }
 }
@@ -842,7 +834,7 @@ void Scanner::scan_token() {
 
             // Now report the error for the entire consumed sequence
             int length = std::max(1, current_ - start_);  // Ensure length is at least 1
-            report_error_here(length, "Unexpected character sequence.");
+            report_error_code_here(length, ErrorCode::Scanner_UnexpectedCharacterSequence);
             add_token(TokenType::ERROR);
             break;
     }

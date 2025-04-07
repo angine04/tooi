@@ -55,11 +55,28 @@ private:
     void scan_number();
     void scan_identifier();
 
-    // Helper to create an error token (could also directly add to tokens_)
-    // Token make_error_token(const std::string& message) const;
+    // Helper to report error using ErrorCode at the current scanning position
+    template<typename... Args>
+    void report_error_code_here(int length, ErrorCode code, Args&&... args);
+};
 
-    void report_error_here(int length, const std::string& message); // Simplified reporting
-}; 
+// --- Implementation of templated member function ---
+// Needs to be in the header file
+template<typename... Args>
+void Scanner::report_error_code_here(int length, ErrorCode code, Args&&... args) {
+    // Find the end of the current line
+    size_t line_end = source_.find('\n', line_start_);
+    if (line_end == std::string::npos) {
+        line_end = source_.length(); // Handle last line
+    }
+    std::string source_line = source_.substr(line_start_, line_end - line_start_);
+
+    // Calculate column (1-based)
+    int column = (start_ - line_start_) + 1;
+
+    // Call the ErrorReporter's new report_at method
+    error_reporter_.report_at(line_, column, length, source_line, code, std::forward<Args>(args)...);
+}
 
 } // namespace core
 } // namespace tooi 

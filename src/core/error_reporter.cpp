@@ -7,7 +7,7 @@
 namespace tooi {
 namespace core {
 
-void ErrorReporter::report_at(int line, int column, int length, const std::string& source_line, const std::string& message) {
+void ErrorReporter::print_error(int line, int column, int length, const std::string& source_line, const std::string& message) {
     using namespace tooi::cli::colors; // Using declaration for convenience
     // Ensure column and length are at least 1 for calculations
     int display_column = std::max(1, column);
