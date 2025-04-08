@@ -34,16 +34,38 @@ make
 
 ```bash
 # 启动 REPL 环境
-./build/tooi
+./tooi
 
 # 执行脚本文件
-./build/tooi path/to/script.tooi
+./tooi path/to/script.tooi
 
 # 显示帮助信息
-./build/tooi --help
+./tooi --help
 
 # 显示版本信息
-./build/tooi --version
+./tooi --version
+```
+
+## 测试
+
+本项目使用 [Catch2](https://github.com/catchorg/Catch2) 作为单元测试框架。
+
+要启用测试功能，请在 CMake 配置时使用 `DTOOI_ENABLE_TESTS` 选项：
+
+```bash
+cmake -B build -DTOOI_ENABLE_TESTS=ON
+```
+
+然后，按常规方式构建项目：
+
+```bash
+cmake --build build
+```
+
+要运行测试，使用 `--run-tests` 参数执行编译后的二进制文件：
+
+```bash
+./build/tooi --run-tests
 ```
 
 ## 许可证
