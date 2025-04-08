@@ -229,4 +229,62 @@ TEST_CASE("Scanner Skips Whitespace and Comments", "[scanner]") {
         CAPTURE(i, tokens[i].type, expected_types[i], tokens[i].lexeme);
         REQUIRE(tokens[i].type == expected_types[i]);
     }
+}
+
+TEST_CASE("Scanner Example Program", "[scanner]") {
+    TestErrorReporter error_reporter;
+    std::string source = R"(
+add io;
+
+set main @ {
+    io.@print_line("Hello, Tooi!");
+};
+)";
+    
+    tooi::core::Scanner scanner(source, error_reporter);
+    std::vector<tooi::core::Token> tokens = scanner.scan_tokens();
+    
+    INFO("Checking hello.tooi example program scanning");
+    REQUIRE_FALSE(error_reporter.had_error());
+    
+    // Expected token sequence
+    std::vector<tooi::core::TokenType> expected_types = {
+        tooi::core::TokenType::ADD,           // add
+        tooi::core::TokenType::IDENTIFIER_LITERAL,  // io
+        tooi::core::TokenType::SEMICOLON,     // ;
+        tooi::core::TokenType::SET,           // set
+        tooi::core::TokenType::IDENTIFIER_LITERAL,  // main
+        tooi::core::TokenType::AT,            // @
+        tooi::core::TokenType::LEFT_BRACE,    // {
+        tooi::core::TokenType::IDENTIFIER_LITERAL,  // io
+        tooi::core::TokenType::DOT,           // .
+        tooi::core::TokenType::AT,            // @
+        tooi::core::TokenType::IDENTIFIER_LITERAL,  // print_line
+        tooi::core::TokenType::LEFT_PAREN,    // (
+        tooi::core::TokenType::STRING_LITERAL, // "Hello, Tooi!"
+        tooi::core::TokenType::RIGHT_PAREN,   // )
+        tooi::core::TokenType::SEMICOLON,     // ;
+        tooi::core::TokenType::RIGHT_BRACE,   // }
+        tooi::core::TokenType::SEMICOLON,     // ;
+        tooi::core::TokenType::END_OF_FILE    // EOF
+    };
+    
+    CAPTURE(tokens.size(), expected_types.size());
+    REQUIRE(tokens.size() == expected_types.size());
+    
+    // Check each token
+    for (size_t i = 0; i < expected_types.size(); ++i) {
+        CAPTURE(i, tokens[i].type, expected_types[i], tokens[i].lexeme);
+        REQUIRE(tokens[i].type == expected_types[i]);
+        
+        // Additional checks for specific tokens
+        if (tokens[i].type == tooi::core::TokenType::STRING_LITERAL) {
+            REQUIRE(tokens[i].lexeme == "\"Hello, Tooi!\"");
+        } else if (tokens[i].type == tooi::core::TokenType::IDENTIFIER_LITERAL) {
+            if (i == 1) REQUIRE(tokens[i].lexeme == "io");
+            else if (i == 4) REQUIRE(tokens[i].lexeme == "main");
+            else if (i == 8) REQUIRE(tokens[i].lexeme == "io");
+            else if (i == 10) REQUIRE(tokens[i].lexeme == "print_line");
+        }
+    }
 } 
