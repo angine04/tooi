@@ -3,6 +3,14 @@
  * @brief Main entry point for the Tooi interpreter application.
  */
 #include <iostream>
+#include <string>
+#include <vector>
+
+// Include Catch2 header only if tests are enabled
+#ifdef TOOI_TESTS_ENABLED
+#define CATCH_CONFIG_RUNNER // Define runner BEFORE including header
+#include "catch2.hpp"
+#endif
 
 // Assuming build system handles include paths correctly:
 #include "tooi/cli/args_parser.h"
@@ -26,10 +34,30 @@
  * @return 0 on successful execution, 1 on error (argument error or file processing error).
  */
 int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    // enable_windows_virtual_term(); // Call the function if needed
+
+    using namespace tooi::cli::colors;
+
+#ifdef TOOI_TESTS_ENABLED
+    // Check if the first argument is --run-tests
+    if (argc > 1 && std::string(argv[1]) == "--run-tests") {
+        std::cout << BOLD_GREEN << "Running tests..." << RESET << std::endl;
+        // Create a new vector to store arguments for Catch2
+        std::vector<char*> catch_argv;
+        catch_argv.push_back(argv[0]); // Program name
+        for (int i = 2; i < argc; ++i) { // Start from argv[2] if any test-specific args exist
+            catch_argv.push_back(argv[i]);
+        }
+        int result = Catch::Session().run(catch_argv.size(), catch_argv.data());
+        return result;
+    }
 #endif
-    using namespace tooi::cli::colors; // Using declaration
+
+#ifndef TOOI_TESTS_ENABLED
+     if (argc > 1 && std::string(argv[1]) == "--run-tests"){
+        std::cerr << BOLD_RED << "Error: Tests are not enabled. Please reconfigure the project with the -DTOOI_ENABLE_TESTS=ON option." << RESET << std::endl;
+        return 1;
+     }
+#endif
 
     // Use using declarations for clarity within the main function scope
     using tooi::cli::ArgsParser;
