@@ -1,48 +1,46 @@
 #include "tooi/core/error_reporter.h"
-
+#include "tooi/cli/colors.h"
+#include "tooi/core/error_registry.h" // Added for ErrorRegistry
+#include <fmt/format.h>            // Added for fmt::format
+#include <sstream>
 #include <iostream>
-#include <string>
-#include <algorithm> // For std::max
-#include "tooi/cli/colors.h" // Use central color definitions
 
 namespace tooi {
 namespace core {
 
-void ErrorReporter::report_at(int line, int column, int length, const std::string& source_line, const std::string& message) {
+// Prints the source context (source line and carets) for a reported error.
+// Assumes the primary error message line has already been printed by the caller.
+void ErrorReporter::print_error(int line, int column, int length, const std::string& source_line, const std::string& formatted_error_line) {
     using namespace tooi::cli::colors; // Using declaration for convenience
     // Ensure column and length are at least 1 for calculations
     int display_column = std::max(1, column);
     int display_length = std::max(1, length);
 
-    // Print basic error info
-    std::cerr << BOLD_RED
-              << "Error [line " << line << ":" << display_column << "]: "
-              << message
-              << RESET
-              << std::endl;
+    // 1. Print the already formatted error line received from the caller
+    std::cerr << formatted_error_line << std::endl;
 
-    // Print the source line
+    // 2. Print the source line
     std::cerr << "  | " << source_line << std::endl;
 
-    // Print the carets
+    // 3. Print the carets
     std::cerr << "  | ";
-    // Add spaces for padding up to the column
-    for (int i = 1; i < display_column; ++i) {
-        if (i -1 < source_line.length() && source_line[i - 1] == '\t') {
-             std::cerr << '\t';
+    // Add spaces for padding up to the column, handling tabs
+    for (int i = 0; i < display_column - 1; ++i) {
+        if (i < source_line.length() && source_line[i] == '\t') {
+             std::cerr << '\t'; // Preserve tab width
         } else {
-             std::cerr << ' ';
+             std::cerr << ' '; // Add a single space
         }
     }
-    // Add the carets
+    // Add the carets (keep them red for errors/fatal/internal)
     std::cerr << BOLD_RED;
     for (int i = 0; i < display_length; ++i) {
         std::cerr << '^';
     }
-    std::cerr << RESET
-              << std::endl;
+    std::cerr << RESET << std::endl;
 
-    had_error_ = true;
+    // NOTE: had_error_ flag is set by the caller (report_at/report_general)
+    // had_error_ = true; // REMOVED
 }
 
 bool ErrorReporter::had_error() const {

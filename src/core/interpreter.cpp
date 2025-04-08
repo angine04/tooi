@@ -4,7 +4,6 @@
  */
 #include "tooi/core/interpreter.h"
 
-#include <fstream> // Still potentially useful
 #include <iostream>
 #include <istream>
 #include <sstream> // Needed to read stream into string
@@ -15,6 +14,7 @@
 #include "tooi/core/token.h"   // Include the Token header
 #include "tooi/core/error_reporter.h"
 #include "tooi/cli/colors.h" // Include colors
+#include "tooi/core/error_info.h"
 
 namespace tooi {
 namespace core {
@@ -48,7 +48,7 @@ bool Interpreter::run(std::istream& input_stream) {
     if (input_stream.bad() || (input_stream.fail() && !input_stream.eof())) {
          // Report stream error using the reporter's new method
          // Provide placeholder values as context isn't readily available here
-         error_reporter_.report_at(1, 1, 1, "", "Error reading input stream.");
+         error_reporter_.report_at(1, 1, 1, "", ErrorCode::Interpreter_StreamReadError);
          return false; // Still return false on stream read error
     }
     if (input_stream.eof()) {
@@ -70,8 +70,7 @@ bool Interpreter::run(std::istream& input_stream) {
 
     // After scanning, check if the scanner reported errors
     if (error_reporter_.had_error()) {
-        // Use Bold Red for this halting message
-        std::cerr << BOLD_RED << "Fatal: Halting due to lexical errors." << RESET << std::endl;
+        error_reporter_.report_general(ErrorCode::Interpreter_HaltingLexical);
         return true;
     }
 
