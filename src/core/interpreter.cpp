@@ -70,8 +70,7 @@ bool Interpreter::run(std::istream& input_stream) {
 
     // After scanning, check if the scanner reported errors
     if (error_reporter_.had_error()) {
-        // Use Bold Red for this halting message
-        std::cerr << BOLD_RED << "Fatal: Halting due to lexical errors." << RESET << std::endl;
+        error_reporter_.report_general(ErrorCode::Interpreter_HaltingLexical);
         return true;
     }
 

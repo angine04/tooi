@@ -7,6 +7,17 @@ namespace tooi {
 namespace core {
 
 /**
+ * @brief Enum representing the severity level of an error.
+ */
+enum class ErrorSeverity {
+    Info,
+    Warning,
+    Error,
+    Fatal,
+    Internal // For errors within the reporter/registry system itself
+};
+
+/**
  * @brief Enum representing all possible error codes in the Tooi compiler/interpreter.
  */
 enum class ErrorCode {
@@ -44,6 +55,7 @@ enum class ErrorCode {
 
     // --- Interpreter Errors ---
     Interpreter_StreamReadError,  // Error reading from input stream
+    Interpreter_HaltingLexical,   // Fatal: Halting due to previous lexical errors
 };
 
 /**
@@ -51,6 +63,7 @@ enum class ErrorCode {
  */
 struct ErrorInfo {
     ErrorCode id;
+    ErrorSeverity severity;     // Added: Severity level of the error
     std::string code_str;     // e.g., "E_SCANNER_INVALID_SUFFIX"
     std::string message_fmt;  // Format string (compatible with {fmt})
     std::string description;  // Longer explanation of the error
