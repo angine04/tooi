@@ -9,6 +9,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# --- Build Options ---
+option(TOOI_ENABLE_TESTS "Enable building tests within the main binary" OFF)
+
 # --- Find Packages ---
 find_package(fmt REQUIRED) # Find the fmt library installed via Brew
 
@@ -23,7 +26,7 @@ target_include_directories(linenoise PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/third-party/linenoise
 )
 
-# --- Your Main Executable --- 
+# --- Your Main Executable ---
 add_executable(tooi
     src/main.cpp
     src/core/interpreter.cpp
@@ -35,6 +38,21 @@ add_executable(tooi
     src/cli/run_from_file.cpp
 )
 
+# --- Test Sources (Conditional) ---
+if(TOOI_ENABLE_TESTS)
+    message(STATUS "Building with tests enabled.")
+    # Find all test source files
+    file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "tests/*.cpp")
+    # Add test sources to the main executable
+    target_sources(tooi PRIVATE ${TEST_SOURCES})
+    # Add test directory to includes for the main executable
+    target_include_directories(tooi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    # Define a preprocessor macro to indicate tests are enabled
+    target_compile_definitions(tooi PRIVATE TOOI_TESTS_ENABLED)
+else()
+    message(STATUS "Building without tests.")
+endif()
+
 # Specify include directories for *your* project AFTER defining the target
 target_include_directories(tooi PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -44,7 +62,7 @@ target_include_directories(tooi PUBLIC
 )
 
 # Link tooi against dependencies
-target_link_libraries(tooi PRIVATE 
+target_link_libraries(tooi PRIVATE
     linenoise
     fmt::fmt # Linking fmt::fmt SHOULD also provide include directories via its INTERFACE properties
 )

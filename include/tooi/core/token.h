@@ -17,6 +17,7 @@ enum class TokenType {
     COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, ASTERISK,
     AT, QUOTE, HASHTAG, DOLLAR, QUESTION, COLON,
     CARET, PERCENT, AMPERSAND, PIPE, TILDE,
+    // Quote is not currently supported as a token type. Reserved.
 
     // One or two character tokens.
     BANG, BANG_EQUAL,

@@ -24,18 +24,13 @@ ErrorRegistry& ErrorRegistry::instance() {
 
 // Get ErrorInfo by code
 const ErrorInfo& ErrorRegistry::get_info(ErrorCode code) const {
-    try {
-        return registry_map_.at(code);
-    } catch (const std::out_of_range& oor) {
-        // Provide a fallback error message if the requested code is unknown
-        try {
-             return registry_map_.at(ErrorCode::Registry_UnknownErrorCode);
-        } catch (...) {
-            // If even the fallback is missing (shouldn't happen), throw a basic error
-             throw ErrorRegistryError("Requested ErrorCode not found and fallback Registry_UnknownErrorCode is also missing.");
-        }
-        // Ideally, log the original unknown code here as well
-        // For now, just return the generic unknown code error info
+    auto it = registry_map_.find(code); // Use find() to search for the code
+    if (it != registry_map_.end()) {
+        return it->second; // Return the found ErrorInfo
+    } else {
+        // If the code is not found, throw a specific exception
+        // Include the integer value of the unknown code in the message
+        throw ErrorRegistryError("Unknown ErrorCode requested: " + std::to_string(static_cast<int>(code)));
     }
 }
 
