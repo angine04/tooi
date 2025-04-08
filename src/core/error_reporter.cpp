@@ -3,6 +3,7 @@
 #include "tooi/core/error_registry.h" // Added for ErrorRegistry
 #include <fmt/format.h>            // Added for fmt::format
 #include <sstream>
+#include <iostream>
 
 namespace tooi {
 namespace core {
