@@ -72,6 +72,11 @@ void ErrorRegistry::initialize_registry() {
         "Unexpected character sequence.",
         "The scanner encountered a sequence of characters that does not form a valid token in the Tooi language."
     };
+    registry_map_[ErrorCode::Scanner_MalformedNumber_TrailingDot] = {
+        ErrorCode::Scanner_MalformedNumber_TrailingDot, ErrorSeverity::Error, "E_SCANNER_TRAILING_DOT",
+        "Trailing decimal point.",
+        "A decimal point (.) was found at the end of a number without any digits following it."
+    };
     registry_map_[ErrorCode::Scanner_MalformedNumber_DecimalRequiresDigit] = {
         ErrorCode::Scanner_MalformedNumber_DecimalRequiresDigit, ErrorSeverity::Error, "E_SCANNER_DECIMAL_REQ_DIGIT",
         "Decimal point must be followed by digits.",
@@ -83,14 +88,19 @@ void ErrorRegistry::initialize_registry() {
         "Numeric literals can contain at most one decimal point."
     };
     registry_map_[ErrorCode::Scanner_InvalidNumericSuffix] = {
-        ErrorCode::Scanner_InvalidNumericSuffix, ErrorSeverity::Error, "E_SCANNER_INVALID_SUFFIX",
-        "Invalid numeric suffix: '{}'.",
-        "The suffix used for the numeric literal is not recognized. Valid suffixes include i, u, f, d, i32, i64, u32, u64."
+        ErrorCode::Scanner_InvalidNumericSuffix, ErrorSeverity::Error, "E_SCANNER_INT_SUFFIX_INVALID",
+        "Invalid suffix '{}' for integer-form numeric literal.",
+        "Numeric literals without a decimal point can only have integer suffixes (i, u, i32, i64, u32, u64), float suffixes (f, d), or no suffix."
     };
     registry_map_[ErrorCode::Scanner_IntegerSuffixWithDecimal] = {
-        ErrorCode::Scanner_IntegerSuffixWithDecimal, ErrorSeverity::Error, "E_SCANNER_INT_SUFFIX_DECIMAL",
-        "Cannot use integer suffix '{}' with decimal point.",
-        "Integer type suffixes (like i, u, i32, i64, u32, u64) cannot be applied to numbers containing a decimal point."
+        ErrorCode::Scanner_IntegerSuffixWithDecimal, ErrorSeverity::Error, "E_SCANNER_INT_SUFFIX_FLOAT",
+        "Integer suffix '{}' cannot be used with a decimal point.",
+        "Suffixes like 'i', 'u', 'i32', etc., are only valid for numbers without a decimal point."
+    };
+    registry_map_[ErrorCode::Scanner_InvalidSuffixForFloat] = {
+        ErrorCode::Scanner_InvalidSuffixForFloat, ErrorSeverity::Error, "E_SCANNER_FLOAT_SUFFIX_INVALID",
+        "Invalid suffix '{}' for floating-point literal.",
+        "Floating-point literals (containing '.') can only have 'f', 'd', or no suffix."
     };
     registry_map_[ErrorCode::Scanner_SuffixRequiresNoDecimal_Int] = {
         ErrorCode::Scanner_SuffixRequiresNoDecimal_Int, ErrorSeverity::Error, "E_SCANNER_INT_SUFFIX_DECIMAL",
@@ -98,14 +108,14 @@ void ErrorRegistry::initialize_registry() {
         "Integer type suffixes (like i, u, i32, i64, u32, u64) cannot be applied to numbers containing a decimal point."
     };
     registry_map_[ErrorCode::Scanner_NumberParseError_Invalid] = {
-        ErrorCode::Scanner_NumberParseError_Invalid, ErrorSeverity::Error, "E_SCANNER_PARSE_INVALID",
-        "Invalid number format for specified type (suffix: '{}').",
-        "The numeric literal could not be parsed into the target type indicated by the suffix (or default type). Check the format."
+        ErrorCode::Scanner_NumberParseError_Invalid, ErrorSeverity::Internal, "X_SCANNER_PARSE_INVALID_ARG",
+        "Invalid argument during number parsing (suffix: '{}'). Check numeric format.",
+        "The conversion function (e.g., std::stoull, std::stod) encountered an invalid format it could not parse."
     };
     registry_map_[ErrorCode::Scanner_NumberParseError_OutOfRange] = {
         ErrorCode::Scanner_NumberParseError_OutOfRange, ErrorSeverity::Error, "E_SCANNER_PARSE_RANGE",
-        "Number out of range for specified type (suffix: '{}').",
-        "The numeric literal's value is too large or too small to fit into the target type indicated by the suffix (or default type)."
+        "Numeric literal out of range for internal storage type (uint64_t or double).",
+        "The value represented by the numeric literal exceeds the limits of the uint64_t or double type during conversion."
     };
     registry_map_[ErrorCode::Scanner_InvalidCharacterInNumber] = {
         ErrorCode::Scanner_InvalidCharacterInNumber, ErrorSeverity::Error, "E_SCANNER_INVALID_CHAR_IN_NUM",

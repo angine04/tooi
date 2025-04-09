@@ -3,6 +3,7 @@
 #include <cstdint> // For integer types
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace tooi {
 namespace core {
@@ -50,7 +51,12 @@ enum class TokenType {
  * 
  * Can hold various numeric types, strings, or be empty via std::monostate
  */
-using TokenLiteral = std::variant<std::monostate, std::string, int32_t, int64_t, uint32_t, uint64_t, float, double>;
+using TokenLiteral = std::variant<
+    std::monostate,  // Represents no literal value
+    std::string,   // For string literals and identifiers
+    uint64_t,      // For all integer literals (magnitude)
+    double         // For all floating-point literals
+>;
 
 /**
  * @brief Represents a single token in the source code

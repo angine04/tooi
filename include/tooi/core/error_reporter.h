@@ -16,6 +16,9 @@ namespace core {
  */
 class ErrorReporter {
 public:
+    // Add virtual destructor
+    virtual ~ErrorReporter() = default;
+    // Default constructor is fine
     ErrorReporter() = default;
 
     /**
@@ -30,7 +33,8 @@ public:
      * @param source_line The full text of the source code line containing the error.
      * @param message The error message.
      */
-    void print_error(int line, int column, int length, const std::string& source_line,
+     // Make this virtual
+    virtual void print_error(int line, int column, int length, const std::string& source_line,
                      const std::string& message);
 
     /**
@@ -202,14 +206,14 @@ public:
      * @brief Checks if any errors have been reported.
      * @return True if report() has been called at least once, false otherwise.
      */
-    bool had_error() const;
+    virtual bool had_error() const;
 
     /**
      * @brief Resets the error state.
      */
-    void reset();
+    virtual void reset();
 
-private:
+protected:
     bool had_error_ = false;
 };
 
