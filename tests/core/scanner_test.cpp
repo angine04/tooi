@@ -10,34 +10,24 @@
 // Simple concrete ErrorReporter for testing purposes
 class TestErrorReporter : public tooi::core::ErrorReporter {
 public:
-    void report_at(int line, int column, int length, const std::string& source_line, tooi::core::ErrorCode code, const std::string& message) {
-        // You could store errors in a vector for detailed inspection if needed
-        // std::cerr << "Test Error: " << message << " at " << line << ":" << column << std::endl;
-        reported_errors_.push_back({line, column, message});
-        had_error_ = true; // Set flag
-    }
-    void report_general(tooi::core::ErrorCode code, const std::string& message) {
-        // std::cerr << "Test General Error: " << message << std::endl;
-        reported_errors_.push_back({-1, -1, message}); // Use special values for general errors
-        had_error_ = true;
-    }
-    bool had_error() const { return had_error_; }
-    void reset() {
-         had_error_ = false;
-         reported_errors_.clear();
+    // Override the virtual base method print_error to suppress output
+    void print_error(int line, int column, int length, const std::string& source_line, const std::string& formatted_error_line) override {
+        // Intentionally empty to suppress console output from report_at
+        // Note: report_general prints directly to cerr, this won't stop that.
+        // We rely on the base class templates setting the protected had_error_ flag.
     }
 
-    // Helper to check if specific errors were reported (optional)
-    const auto& get_errors() const { return reported_errors_; }
+    // We don't need to override report_at or report_general because:
+    // 1. The base versions are templates and cannot be overridden.
+    // 2. The base templates set the protected had_error_ flag directly.
+    // 3. We override print_error() to stop report_at from printing.
 
-private:
-    struct ErrorInfo {
-        int line;
-        int column;
-        std::string message;
-    };
-    bool had_error_ = false;
-    std::vector<ErrorInfo> reported_errors_;
+    // Use the virtual had_error() and reset() from the base class.
+    // These correctly access the protected had_error_ member.
+    using ErrorReporter::had_error;
+    using ErrorReporter::reset;
+
+    // No private members needed here, had_error_ is inherited as protected.
 };
 
 // Test case 1: Basic Scanner initialization and empty input
@@ -231,6 +221,196 @@ TEST_CASE("Scanner Skips Whitespace and Comments", "[scanner]") {
     }
 }
 
+TEST_CASE("Scanner Number Recognition", "[scanner]") {
+    using namespace tooi::core;
+    TestErrorReporter reporter;
+
+    SECTION("Integer Literals (Stored as uint64_t magnitude)") {
+        reporter.reset();
+        Scanner scanner("123 0 -456 9", reporter);
+        std::vector<Token> tokens = scanner.scan_tokens();
+
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens.size() == 6); // NUMBER, NUMBER, MINUS, NUMBER, NUMBER, EOF
+
+        INFO("Checking 123");
+        REQUIRE(tokens[0].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens[0].literal));
+        REQUIRE(std::get<uint64_t>(tokens[0].literal) == 123ULL);
+
+        INFO("Checking 0");
+        REQUIRE(tokens[1].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens[1].literal));
+        REQUIRE(std::get<uint64_t>(tokens[1].literal) == 0ULL);
+
+        INFO("Checking MINUS");
+        REQUIRE(tokens[2].type == TokenType::MINUS);
+
+        INFO("Checking 456");
+        REQUIRE(tokens[3].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens[3].literal));
+        REQUIRE(std::get<uint64_t>(tokens[3].literal) == 456ULL);
+
+        INFO("Checking 9");
+        REQUIRE(tokens[4].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens[4].literal));
+        REQUIRE(std::get<uint64_t>(tokens[4].literal) == 9ULL);
+
+        INFO("Checking EOF");
+        REQUIRE(tokens[5].type == TokenType::END_OF_FILE);
+    }
+
+    SECTION("Floating-Point Literals (Stored as double)") {
+        reporter.reset();
+        Scanner scanner("123.45 0.0 -0.5 123f 456d 789.0f 1.0d", reporter);
+        std::vector<Token> tokens = scanner.scan_tokens();
+
+        REQUIRE_FALSE(reporter.had_error());
+        // Expect: 123.45, 0.0, MINUS, 0.5, 123.0, 456.0, 789.0, 1.0, EOF
+        REQUIRE(tokens.size() == 9);
+
+        INFO("Checking 123.45"); REQUIRE(tokens[0].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[0].literal) == 123.45);
+        INFO("Checking 0.0"); REQUIRE(tokens[1].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[1].literal) == 0.0);
+        INFO("Checking MINUS"); REQUIRE(tokens[2].type == TokenType::MINUS);
+        INFO("Checking 0.5"); REQUIRE(tokens[3].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[3].literal) == 0.5);
+        INFO("Checking 123f -> double"); REQUIRE(tokens[4].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[4].literal) == 123.0);
+        INFO("Checking 456d -> double"); REQUIRE(tokens[5].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[5].literal) == 456.0);
+        INFO("Checking 789.0f -> double"); REQUIRE(tokens[6].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[6].literal) == 789.0);
+        INFO("Checking 1.0d -> double"); REQUIRE(tokens[7].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[7].literal) == 1.0);
+        INFO("Checking EOF"); REQUIRE(tokens[8].type == TokenType::END_OF_FILE);
+    }
+
+    SECTION("Numbers with Whitespace") {
+        reporter.reset();
+        Scanner scanner("  123 \n 45.67 \t ", reporter);
+        std::vector<Token> tokens = scanner.scan_tokens();
+
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens.size() == 3); // NUMBER(uint64), NUMBER(double), EOF
+        REQUIRE(tokens[0].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[0].literal) == 123ULL);
+        REQUIRE(tokens[1].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[1].literal) == 45.67);
+        REQUIRE(tokens[2].type == TokenType::END_OF_FILE);
+    }
+
+    SECTION("Malformed Numbers - Form Errors") {
+        // Multiple Decimals
+        reporter.reset(); Scanner scanner_md("123.45.67", reporter); scanner_md.scan_tokens(); 
+        REQUIRE(reporter.had_error()); 
+        // Trailing Dot
+        reporter.reset(); Scanner scanner_td("99.", reporter); scanner_td.scan_tokens(); 
+        REQUIRE(reporter.had_error()); 
+    }
+
+    SECTION("Malformed Numbers - Invalid Suffix") {
+        reporter.reset(); Scanner scanner_is("123foo", reporter); scanner_is.scan_tokens(); 
+        REQUIRE(reporter.had_error()); 
+    }
+
+    SECTION("Malformed Numbers - Suffix Incompatibility") {
+        reporter.reset(); Scanner scanner_si("1.23i32", reporter); scanner_si.scan_tokens(); 
+        REQUIRE(reporter.had_error()); // Expect Scanner_InvalidSuffixForFloat
+    }
+
+    SECTION("Range Checks (Scanner only checks ULLONG/Double limits)") {
+        // Test number > ULLONG_MAX (relies on stoull throwing)
+        reporter.reset();
+        std::string too_huge_number = "18446744073709551616"; // ULLONG_MAX + 1 approx
+        Scanner scanner_too_huge(too_huge_number, reporter);
+        scanner_too_huge.scan_tokens();
+        REQUIRE(reporter.had_error()); // Expect stoull to throw OutOfRange
+
+        // Test INT64_MAX + 1 magnitude (Stored as uint64_t, NO Scanner Error)
+        reporter.reset();
+        std::string i64_max_p1 = "9223372036854775808";
+        Scanner scanner_i64(i64_max_p1, reporter);
+        std::vector<Token> tokens_i64 = scanner_i64.scan_tokens();
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens_i64.size() == 2);
+        REQUIRE(tokens_i64[0].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens_i64[0].literal));
+        REQUIRE(std::get<uint64_t>(tokens_i64[0].literal) == 9223372036854775808ULL);
+
+        // Test INT32_MAX + 1 magnitude (Stored as uint64_t, NO Scanner Error)
+        reporter.reset();
+        std::string i32_max_p1 = "2147483648i32";
+        Scanner scanner_i32(i32_max_p1, reporter);
+        std::vector<Token> tokens_i32 = scanner_i32.scan_tokens();
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens_i32.size() == 2);
+        REQUIRE(tokens_i32[0].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens_i32[0].literal));
+        REQUIRE(std::get<uint64_t>(tokens_i32[0].literal) == 2147483648ULL);
+
+        // Test UINT32_MAX + 1 with u32 suffix (Scanner should NOT check this explicitly)
+        reporter.reset();
+        std::string u32_max_p1 = "4294967296u32"; // UINT32_MAX + 1
+        Scanner scanner_u32(u32_max_p1, reporter);
+        std::vector<Token> tokens_u32 = scanner_u32.scan_tokens();
+        // FIX: Scanner no longer checks u32 range, expect NO error
+        REQUIRE_FALSE(reporter.had_error()); 
+        // Expect NUMBER(uint64_t), EOF
+        REQUIRE(tokens_u32.size() == 2);
+        INFO("Checking NUMBER token for UINT32_MAX + 1 magnitude");
+        REQUIRE(tokens_u32[0].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens_u32[0].literal));
+        REQUIRE(std::get<uint64_t>(tokens_u32[0].literal) == 4294967296ULL);
+        REQUIRE(tokens_u32[1].type == TokenType::END_OF_FILE);
+    }
+
+    SECTION("Valid Suffixes") { // Replaces i32 Suffix Handling focus
+        reporter.reset();
+        const char* src = "1i 2u 3i32 4u32 5i64 6u64 7f 8d 9.0f 1.0d";
+        Scanner scanner(src, reporter);
+        std::vector<Token> tokens = scanner.scan_tokens();
+
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens.size() == 11); // 10 numbers + EOF
+
+        // Check integer forms stored as uint64_t
+        REQUIRE(tokens[0].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[0].literal) == 1ULL); // 1i
+        REQUIRE(tokens[1].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[1].literal) == 2ULL); // 2u
+        REQUIRE(tokens[2].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[2].literal) == 3ULL); // 3i32
+        REQUIRE(tokens[3].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[3].literal) == 4ULL); // 4u32
+        REQUIRE(tokens[4].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[4].literal) == 5ULL); // 5i64
+        REQUIRE(tokens[5].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<uint64_t>(tokens[5].literal) == 6ULL); // 6u64
+        
+        // Check float forms stored as double
+        REQUIRE(tokens[6].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[6].literal) == 7.0); // 7f
+        REQUIRE(tokens[7].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[7].literal) == 8.0); // 8d
+        REQUIRE(tokens[8].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[8].literal) == 9.0); // 9.0f
+        REQUIRE(tokens[9].type == TokenType::NUMBER_LITERAL); REQUIRE(std::get<double>(tokens[9].literal) == 1.0); // 1.0d
+
+        REQUIRE(tokens[10].type == TokenType::END_OF_FILE);
+    }
+
+    SECTION("Handling INT_MIN Input String") {
+        reporter.reset();
+        Scanner scanner_i32_min("-2147483648i32", reporter);
+        std::vector<Token> tokens_i32_min = scanner_i32_min.scan_tokens();
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens_i32_min.size() == 3);
+        REQUIRE(tokens_i32_min[0].type == TokenType::MINUS);
+        REQUIRE(tokens_i32_min[1].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens_i32_min[1].literal));
+        REQUIRE(std::get<uint64_t>(tokens_i32_min[1].literal) == 2147483648ULL);
+        REQUIRE(tokens_i32_min[2].type == TokenType::END_OF_FILE);
+
+        reporter.reset();
+        Scanner scanner_i64_min("-9223372036854775808", reporter);
+        std::vector<Token> tokens_i64_min = scanner_i64_min.scan_tokens();
+        REQUIRE_FALSE(reporter.had_error());
+        REQUIRE(tokens_i64_min.size() == 3);
+        REQUIRE(tokens_i64_min[0].type == TokenType::MINUS);
+        REQUIRE(tokens_i64_min[1].type == TokenType::NUMBER_LITERAL);
+        REQUIRE(std::holds_alternative<uint64_t>(tokens_i64_min[1].literal));
+        REQUIRE(std::get<uint64_t>(tokens_i64_min[1].literal) == 9223372036854775808ULL);
+        REQUIRE(tokens_i64_min[2].type == TokenType::END_OF_FILE);
+    }
+
+    // TODO: Add tests for hex, binary, octal if/when supported
+    // TODO: Add tests for scientific notation (e.g., 1.23e4) if/when supported
+}
+
 TEST_CASE("Scanner Example Program", "[scanner]") {
     TestErrorReporter error_reporter;
     std::string source = R"(
@@ -287,4 +467,4 @@ set main @ {
             else if (i == 10) REQUIRE(tokens[i].lexeme == "print_line");
         }
     }
-} 
+}

@@ -21,6 +21,8 @@ enum class ErrorSeverity {
  * @brief Enum representing all possible error codes in the Tooi compiler/interpreter.
  */
 enum class ErrorCode {
+    NoError = 0, // Sentinel value for no error
+
     // --- Scanner Errors ---
     Scanner_InvalidCharacter,
     Scanner_UnterminatedString,
@@ -29,6 +31,7 @@ enum class ErrorCode {
     Scanner_UnterminatedRawString,
     Scanner_UnterminatedBlockComment,
     Scanner_UnexpectedCharacterSequence,
+    Scanner_MalformedNumber_TrailingDot,
     Scanner_MalformedNumber_DecimalRequiresDigit,  // e.g., "1."
     Scanner_MalformedNumber_MultipleDecimals,      // e.g., "1.2.3"
     Scanner_InvalidNumericSuffix,                  // e.g., "123xyz"
@@ -37,9 +40,11 @@ enum class ErrorCode {
     Scanner_NumberParseError_Invalid,     // std::invalid_argument during conversion
     Scanner_NumberParseError_OutOfRange,  // std::out_of_range during conversion
     Scanner_InvalidCharacterInNumber,     // 新增：无效的字符在数字中
+    Scanner_InvalidSuffixForFloat,        // ADDED: e.g., 1.23i32
 
     // --- Parser Errors ---
     // TODO: Add parser error codes
+
     Parser_UnexpectedToken,
     Parser_ExpectedExpression,
     // ... other parser errors

@@ -510,171 +510,126 @@ void Scanner::scan_raw_string() {
 void Scanner::scan_number() {
     size_t num_start = start_;
     bool has_decimal = false;
+    bool has_exponent = false; // TODO: Track exponent if supporting scientific notation
+    std::string num_part; // Store digits and the dot
 
-    // 1. Scan the integer part
-    while (is_digit(peek())) {
-        advance();
+    // Phase 1: Scan digits, single dot, more digits
+    while (!is_at_end()) {
+        char current_char = peek();
+        if (is_digit(current_char)) {
+            num_part += advance();
+        } else if (current_char == '.') {
+            if (has_decimal) { // Error: Second decimal point
+                // Consume the second dot and any following digits for the error token
+                num_part += advance();
+                while(is_digit(peek())) { num_part += advance(); }
+                report_error_code_here(num_part.length(), ErrorCode::Scanner_MalformedNumber_MultipleDecimals);
+                add_token(TokenType::ERROR);
+                return;
+            }
+            // Check for trailing dot immediately
+            if (!is_digit(peek_next())) { 
+                // Error: Trailing dot (dot not followed by digit)
+                num_part += advance(); // Consume the dot for the error token
+                report_error_code_here(num_part.length(), ErrorCode::Scanner_MalformedNumber_TrailingDot);
+                add_token(TokenType::ERROR);
+                return;
+            }
+            // First valid decimal point
+            has_decimal = true;
+            num_part += advance(); // Consume the valid dot
+        } else {
+            // Not a digit or dot, break to check for suffix/other characters
+            break;
+        }
     }
 
-    // 2. Scan the optional fractional part
-    if (peek() == '.' && is_digit(peek_next())) {
-        has_decimal = true;
-        advance();  // Consume the '.'
-        while (is_digit(peek())) {
-            advance();
+    // Phase 2: Scan optional suffix (alphanumeric)
+    size_t suffix_start_pos = current_;
+    std::string suffix_part;
+    while (is_alpha_numeric(peek())) {
+        suffix_part += advance();
+    }
+
+    // Phase 3: Check for unexpected characters immediately after number/suffix
+    // Example: 123# or 1.5foo? (assuming foo is not a valid suffix)
+    // This check might be better placed after suffix validation?
+    // Let's integrate it with suffix validation for now.
+
+    // Phase 4: Validate Suffix based on presence of decimal
+    bool store_as_double = false;
+    bool is_integer_form = !has_decimal;
+    ErrorCode suffix_error = ErrorCode::NoError; // Placeholder
+
+    if (is_integer_form) {
+        // Allowed suffixes: "", i, u, i32, i64, u32, u64
+        if (suffix_part.empty() || suffix_part == "i" || suffix_part == "u" || 
+            suffix_part == "i32" || suffix_part == "i64" || 
+            suffix_part == "u32" || suffix_part == "u64") {
+            store_as_double = false; // Store as uint64_t
+        } else if (suffix_part == "f" || suffix_part == "d") {
+            store_as_double = true; // Integer form, but float suffix -> store as double
+        } else {
+            suffix_error = ErrorCode::Scanner_InvalidNumericSuffix;
         }
-    } else if (peek() == '.') {
-        // Error: Decimal point not followed by a digit
-        // Don't consume the '.', leave it for the default error handler
-        // Report error at the position of the invalid '.'
-        report_error_code_here(1, ErrorCode::Scanner_InvalidCharacterInNumber, '.');
+    } else { // has_decimal is true
+        // Allowed suffixes: "", f, d
+        if (suffix_part.empty() || suffix_part == "f" || suffix_part == "d") {
+            store_as_double = true; // Float form -> store as double
+        } else {
+            // Found an integer suffix (like i32) after a decimal point
+            suffix_error = ErrorCode::Scanner_InvalidSuffixForFloat; // Need this ErrorCode
+        }
+    }
+
+    // Report suffix error if found
+    if (suffix_error != ErrorCode::NoError) {
+        // The error token should ideally cover the number part + the invalid suffix
+        report_error_code_here( (current_ - start_), suffix_error, suffix_part);
         add_token(TokenType::ERROR);
-        // Need to ensure the scanner progresses past the number part before the dot
-        // but doesn't consume the dot itself here.
-        // The main scan_token loop will handle the dot or error out on it.
-        // If start_ == current_ (only '.' was seen), let default handler manage.
-        // If digits were seen before '.', we've advanced 'current_', so the main loop
-        // will see '.' next.
-        // Just return, the state is such that the main loop will process the '.' next.
-        if (current_ > start_) {  // If we consumed digits before the dot
-            // Add a token for the digits scanned *before* the invalid dot
-            // This might be complex, perhaps just letting the default handler
-            // catch the '.' after a number is simpler? Let's stick to reporting
-            // the specific error here and adding an ERROR token.
-            return;  // Let the main loop handle the '.' token or error
-        } else {     // '.' was the first character seen after start_
-            // Let the default handler in scan_token deal with '.'
-            // This path seems complex, maybe rethink.
-            report_error_code_here(1, ErrorCode::Scanner_InvalidCharacterInNumber, '.');
-            add_token(TokenType::ERROR);
-            // Do NOT advance past the '.', the next call to scan_token should see it.
-            return;
-        }
-    }
-
-    // <<< NEW CHECK for multiple decimal points >>>
-    if (peek() == '.') {
-        // Error: Found a second decimal point immediately after the number part.
-        advance(); // Consume the second '.' to include in error lexeme
-        // Optionally consume subsequent digits if we want 1.2.3 to be one error token
-        while(is_digit(peek())) {
-            advance();
-        }
-        // Report error covering the whole invalid sequence from num_start
-        size_t error_len = current_ - num_start;
-        report_error_code_here(error_len, ErrorCode::Scanner_InvalidCharacterInNumber, '.');
-        add_token(TokenType::ERROR); // add_token uses start_ and current_ for lexeme
         return;
     }
 
-    size_t num_end = current_;  // End of the numeric part (digits + optional fraction)
-    std::string num_str = source_.substr(num_start, num_end - num_start);
-
-    // 3. Scan the optional suffix
-    std::string suffix = "";
-    size_t suffix_start = current_;
-    if (is_alpha(peek())) {                 // Potential suffix start
-        while (is_alpha_numeric(peek())) {  // Read potential suffix chars
-            advance();
-        }
-        suffix = source_.substr(suffix_start, current_ - suffix_start);
-    }
-
-    // 4. Validate suffix and determine type, then parse
+    // Phase 5: Parse into uint64_t or double
     TokenLiteral literal = std::monostate{};
     bool parse_ok = false;
-
     try {
-        if (suffix == "f") {
-            float value = std::stof(num_str);
+        if (store_as_double) {
+            double value = std::stod(num_part);
             literal = value;
             parse_ok = true;
-        } else if (suffix == "d") {
-            // 'd' suffix is primarily for clarity, acts like no suffix + decimal
-            double value = std::stod(num_str);
-            literal = value;
-            parse_ok = true;
-        } else if (suffix == "i32") {
-            if (has_decimal) {
-                report_error_code_here(num_str.length() + suffix.length(),
-                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
-                                   suffix);
-                add_token(TokenType::ERROR);
-                return;
+        } else {
+            // Unsigned Integers: Use stoull, store uint64_t magnitude
+            if (suffix_part == "u32" || suffix_part == "u64" || suffix_part == "u") {
+                if (has_decimal) { /* Report error Scanner_IntegerSuffixWithDecimal */ return; }
+                uint64_t magnitude = std::stoull(num_part); // Parse magnitude
+                // Always store the parsed uint64_t magnitude
+                literal = magnitude;
+                parse_ok = true;
             }
-            // Note: std::stoi parses as int, check range for int32_t if necessary
-            long long intermediate = std::stoll(num_str);  // Parse as wider type first
-            if (intermediate < INT32_MIN || intermediate > INT32_MAX) {
-                throw std::out_of_range("i32");
+            // Signed Integers ... (logic remains the same)
+            else if (suffix_part == "i32" || suffix_part == "i" || suffix_part == "i64" || (suffix_part.empty() && !has_decimal)) {
+                uint64_t magnitude = std::stoull(num_part); // Parse magnitude
+                literal = magnitude;
+                parse_ok = true;
             }
-            literal = static_cast<int32_t>(intermediate);
-            parse_ok = true;
-        } else if (suffix == "i" || suffix == "i64" || (suffix.empty() && !has_decimal)) {
-            if (has_decimal) {
-                report_error_code_here(num_str.length() + suffix.length(),
-                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
-                                   suffix);
-                add_token(TokenType::ERROR);
-                return;
-            }
-            int64_t value = std::stoll(num_str);
-            literal = value;
-            parse_ok = true;
-        } else if (suffix == "u32") {
-            if (has_decimal) {
-                report_error_code_here(num_str.length() + suffix.length(),
-                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
-                                   suffix);
-                add_token(TokenType::ERROR);
-                return;
-            }
-            unsigned long long intermediate = std::stoull(num_str);  // Parse as wider type first
-            if (intermediate > UINT32_MAX) {
-                throw std::out_of_range("u32");
-            }
-            literal = static_cast<uint32_t>(intermediate);
-            parse_ok = true;
-        } else if (suffix == "u" || suffix == "u64") {
-            if (has_decimal) {
-                report_error_code_here(num_str.length() + suffix.length(),
-                                   ErrorCode::Scanner_IntegerSuffixWithDecimal,
-                                   suffix);
-                add_token(TokenType::ERROR);
-                return;
-            }
-            uint64_t value = std::stoull(num_str);
-            literal = value;
-            parse_ok = true;
-        } else if (suffix.empty() && has_decimal) {
-            // Default float is double
-            double value = std::stod(num_str);
-            literal = value;
-            parse_ok = true;
-        } else if (!suffix.empty()) {
-            // Invalid suffix
-            report_error_code_here(suffix.length(), 
-                                   ErrorCode::Scanner_InvalidNumericSuffix, 
-                                   suffix); // Pass suffix as argument for formatting
-            add_token(TokenType::ERROR);
-            return; // Don't add NUMBER token
         }
-        // Should not happen if logic is correct, but handle case where suffix was empty
-        // and no decimal was present (handled by 'i'/'i64' case implicitly)
 
         if (parse_ok) {
             add_token(TokenType::NUMBER_LITERAL, literal);
         }
-        // else: error was reported and ERROR token added within suffix checks or catch block
 
     } catch (const std::invalid_argument& ia) {
-        report_error_code_here(num_str.length() + suffix.length(),
-                           ErrorCode::Scanner_NumberParseError_Invalid,
-                           suffix);
+        report_error_code_here(current_ - start_, ErrorCode::Scanner_NumberParseError_Invalid, suffix_part.empty() ? "" : suffix_part);
         add_token(TokenType::ERROR);
     } catch (const std::out_of_range& oor) {
-        report_error_code_here(num_str.length() + suffix.length(),
-                           ErrorCode::Scanner_NumberParseError_OutOfRange,
-                           suffix);
+        std::string range_type = suffix_part; // Base type on suffix
+        if (suffix_part.empty()) {
+            range_type = store_as_double ? "double" : "uint64";
+        } else if (suffix_part == "f" || suffix_part == "d") {
+            range_type = store_as_double ? "double" : "double_from_int"; // Clarify origin
+        } // else suffix is u32, u64 etc.
+        report_error_code_here(current_ - start_, ErrorCode::Scanner_NumberParseError_OutOfRange, range_type);
         add_token(TokenType::ERROR);
     }
 }
@@ -698,144 +653,77 @@ void Scanner::scan_token() {
     skip_whitespace_and_comments();
     start_ = current_;
 
-    if (is_at_end())
-        return;
+    if (is_at_end()) {
+        // The main scan_tokens loop adds EOF, so just return
+        return; 
+    }
 
-    char c = advance();
+    // Peek at the next character to decide the token type
+    char c = peek();
 
-    if (is_alpha(c)) {
+    // Check for identifier start first (more common?)
+    if (is_alpha(c) || c == '_') { // Allow underscore start?
         scan_identifier();
         return;
     }
+    // Check for number start
     if (is_digit(c)) {
-        scan_number();
+        scan_number(); // Let scan_number handle from current_
         return;
     }
 
+    // If not identifier or number, NOW consume the character for single/double char tokens
+    advance();
+
     switch (c) {
-        case '(':
-            add_token(TokenType::LEFT_PAREN);
-            break;
-        case ')':
-            add_token(TokenType::RIGHT_PAREN);
-            break;
-        case '{':
-            add_token(TokenType::LEFT_BRACE);
-            break;
-        case '}':
-            add_token(TokenType::RIGHT_BRACE);
-            break;
-        case '[':
-            add_token(TokenType::LEFT_BRACKET);
-            break;
-        case ']':
-            add_token(TokenType::RIGHT_BRACKET);
-            break;
-        case ',':
-            add_token(TokenType::COMMA);
-            break;
-        case '.':
-            add_token(TokenType::DOT);
-            break;
-        case '-':
-            add_token(match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS);
-            break;
-        case '+':
-            add_token(TokenType::PLUS);
-            break;
-        case ';':
-            add_token(TokenType::SEMICOLON);
-            break;
-        case '*':
-            add_token(TokenType::ASTERISK);
-            break;
-        case '@':
-            add_token(TokenType::AT);
-            break;
-        case '#':
-            add_token(TokenType::HASHTAG);
-            break;
-        case '$':
-            add_token(TokenType::DOLLAR);
-            break;
-        case '?':
-            add_token(TokenType::QUESTION);
-            break;
-        case ':':
-            add_token(match(':') ? TokenType::COLON_COLON : TokenType::COLON);
-            break;
-        case '^':
-            add_token(TokenType::CARET);
-            break;
-        case '%':
-            add_token(TokenType::PERCENT);
-            break;
-        case '&':
-            add_token(TokenType::AMPERSAND);
-            break;
-        case '|':
-            add_token(TokenType::PIPE);
-            break;
-        case '~':
-            add_token(TokenType::TILDE);
-            break;
-        case '!':
-            add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
-            break;
-        case '=':
-            if (match('>')) {
-                add_token(TokenType::EQUAL_GREATER);
-            } else {
-                add_token(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
-            }
-            break;
-        case '<':
-            add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
-            break;
-        case '>':
-            if (match('=')) {
-                add_token(TokenType::GREATER_EQUAL);
-            } else if (match('>')) {
-                add_token(TokenType::GREATER_GREATER);
-            } else {
-                add_token(TokenType::GREATER);
-            }
-            break;
-        case '/':
-            add_token(TokenType::SLASH);
-            break;
+        // Single-character tokens
+        case '(': add_token(TokenType::LEFT_PAREN); break;
+        case ')': add_token(TokenType::RIGHT_PAREN); break;
+        case '{': add_token(TokenType::LEFT_BRACE); break;
+        case '}': add_token(TokenType::RIGHT_BRACE); break;
+        case '[': add_token(TokenType::LEFT_BRACKET); break;
+        case ']': add_token(TokenType::RIGHT_BRACKET); break;
+        case ',': add_token(TokenType::COMMA); break;
+        case '.': add_token(TokenType::DOT); break; // Standalone dot
+        case '+': add_token(TokenType::PLUS); break;
+        case ';': add_token(TokenType::SEMICOLON); break;
+        case '*': add_token(TokenType::ASTERISK); break;
+        case '@': add_token(TokenType::AT); break;
+        case '#': add_token(TokenType::HASHTAG); break;
+        case '?': add_token(TokenType::QUESTION); break;
+        case '^': add_token(TokenType::CARET); break;
+        case '%': add_token(TokenType::PERCENT); break;
+        case '&': add_token(TokenType::AMPERSAND); break;
+        case '|': add_token(TokenType::PIPE); break;
+        case '~': add_token(TokenType::TILDE); break;
+        case '$': add_token(TokenType::DOLLAR); break;
 
-        case '"':
-            scan_interpolated_string('"');
+        // One or two character tokens
+        case '!': add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG); break;
+        case '=': 
+            if (match('>')) { add_token(TokenType::EQUAL_GREATER); }
+            else { add_token(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL); }
             break;
-        case '\'':
-            scan_interpolated_string('\'');
+        case '<': add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS); break;
+        case '>': 
+            if (match('=')) { add_token(TokenType::GREATER_EQUAL); }
+            else if (match('>')) { add_token(TokenType::GREATER_GREATER); }
+            else { add_token(TokenType::GREATER); }
             break;
-        case '`':
-            scan_raw_string();
-            break;
+        case '/': add_token(TokenType::SLASH); break; // Comments handled in skip_whitespace
+        case '-': add_token(match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS); break;
+        case ':': add_token(match(':') ? TokenType::COLON_COLON : TokenType::COLON); break;
 
-        default:  // Handle unexpected character sequence
-            // Consume contiguous invalid characters
-            while (!is_at_end()) {
-                char next_char = peek();
-                // Check if the next character *could* start a valid token or is whitespace
-                // This check might need refinement depending on exact token rules
-                if (std::isspace(static_cast<unsigned char>(next_char)) || is_alpha(next_char) ||
-                    is_digit(next_char) ||
-                    std::string("(){}[],.-+;*/@'#$?%^&|~<>!=:`").find(next_char) !=
-                        std::string::npos) {
-                    // Next character is whitespace or could start a valid token, stop consuming
-                    break;
-                }
-                // Otherwise, consume the invalid character as part of the sequence
-                advance();
-            }
+        // String literals (already consumed the opening quote)
+        case '"': scan_interpolated_string('"'); break;
+        case '\'': scan_interpolated_string('\''); break;
+        case '`': scan_raw_string(); break;
 
-            // Now report the error for the entire consumed sequence
-            int length = std::max(1, current_ - start_);  // Ensure length is at least 1
-            report_error_code_here(length, ErrorCode::Scanner_UnexpectedCharacterSequence);
-            add_token(TokenType::ERROR);
+        default:
+            // Unrecognized character
+            report_error_code_here(1, ErrorCode::Scanner_InvalidCharacter, c);
+            // Consider adding an ERROR token here as well for robustness
+            // add_token(TokenType::ERROR);
             break;
     }
 }
